@@ -1,0 +1,29 @@
+import time
+
+import pytest
+
+from infra.report.report_manager import ReportManager
+from infra.utils.user_creator import UserCreator
+from tests.dima_test.reporting_cc_sut import ReportingSut
+
+
+
+@pytest.fixture(scope="package")
+def sut():
+    """
+       Initialize the DSS SUT
+       :return:
+       """
+    sut = ReportingSut()
+    sut.init()
+    yield sut
+    sut.close()
+
+
+@pytest.fixture(scope="function")
+def user(sut):
+    user = UserCreator(f"test_dss_{int(time.time())}")
+    user.create()
+    ReportManager().info(f"username {user.username} created")
+    yield user
+    user.close()
