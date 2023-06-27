@@ -1,0 +1,102 @@
+import time
+
+import pytest
+from datetime import datetime, timedelta
+
+from sqlalchemy import false
+
+from infra.steps.steps import Given
+from tests.dss_tests.test_sanity_dss import key
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.sanity
+@pytest.mark.dss
+# @pytest.mark.xrayjira(test_key="NT-4476")
+def test_create_and_read_request_to_dss(sut,user):
+
+    res = test_generete_recordes(user)
+    response = sut.dss.create(res, not_for_deletion=True)
+    print(response)
+
+
+def test_generete_recordes(user):
+    exp = {
+        "entries": {}
+    }
+
+    for i in range(0, 10):
+        selected_day = datetime.now() + timedelta(i)
+        print(f" Selected day - {selected_day.strftime('%d/%m/%Y')}")
+        record = {
+            'timeEpochMs': selected_day.utcfromtimestamp(0),
+            'tzName': 'Europe/London',
+            'userId': user.username,
+            'entryType': "FITNESS",
+            'dataVersion': '10.0',
+            'event_state': 'create',
+            'entered_as_units': 'MGDL',
+            'units': 'grams',
+            'intensity': 'high',
+            'duration': 200200,
+            "predictiveSg": 100,}
+
+        print(datetime.date(selected_day))
+        exp['entries'].update({'automation' + 'FITNESS' + str(i): record})
+
+        for i in range(0, 8):
+            record = {
+                'timeEpochMs': selected_day.utcfromtimestamp(0),
+                'tzName': 'Europe/London',
+                'userId': user.username,
+                'entryType': "GLUCOSE",
+                'dataVersion': '10.0',
+                'event_state': 'create',
+                'entered_as_units': 'MGDL',
+                'units': 'grams',
+                'calibration': True,
+                'noValue': 'above_sensor_limit',
+                'value': 80,
+                'Is_fasting_glucose': True
+            }
+
+        print(datetime.date(selected_day))
+        exp['entries'].update({'automation' + str(i): record})
+
+        for i in range(0, 15):
+            record = {
+                'timeEpochMs': selected_day.utcfromtimestamp(0),
+                'tzName': 'Europe/London',
+                'userId': user.username,
+                'entryType': "PUMP_SENSOR_GLUCOSE",
+                'notes': 'test only',
+                "rawData": {
+                    "sequenceNumber": 35,
+                    "sensorTime": 978307548,
+                    "backfillIndicator": false,
+                    "header": {
+                        "rtc": 978307606,
+                        "eventId": "SENSOR_GLUCOSE",
+                        "epochSessionId": 0,
+                        "dayId": 2,
+                        "guid": "ABCD1234",
+                        "type": "PERIODIC_THERAPY",
+                        "sequenceId": 35
+                    },
+                    "isig": 2600,
+                    "predictiveSg": 100,
+                    "vCount": -64,
+                    "rateOfChange": 0,
+                    "value": 100,
+                    "deviceId": "",
+                    "sensorState": "NO_ERROR_MESSAGE"
+                },
+            }
+
+            print(datetime.date(selected_day))
+            exp['entries'].update({'automation' + 'NOTE' + str(i): record})
+
+    print(exp)
+    return exp
+
