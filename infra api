@@ -1,0 +1,62 @@
+import uuid
+
+import requests
+import json
+
+from websockets import headers
+
+from infra import pytest
+from infra.component.auth_component import AuthComponent
+from infra.utils.assert_functions import assert_response_text, multiple_assert_response_options_text
+
+
+
+class ReportComp(AuthComponent):
+
+
+    def __init__(self):
+        super().__init__()
+        self.base_url = None
+        self.header = None
+        self.api_url = None
+        self.base_url_meta = None
+
+
+    def close(self):
+        super().close()
+        """
+        Delete all users' 
+        """
+    def init(self):
+        super().init()
+        assert self.base_url is not None
+        assert self.api_key is not None
+        assert self.api_key_meta is not None
+        assert self.base_url_meta  is not None
+
+
+
+    def get_status_report(self, uuid,headers):
+
+        resp = requests.get(self.base_url + '/reportStatus?uuid=' + str(uuid), headers=headers)
+        return resp
+
+    def get_report_csv(self, uuid,headers):
+
+        resp = requests.get(self.base_url + '/reportCsv?uuid=' + str(uuid), headers=headers)
+        return resp
+
+    def get_report_pdf(self, uuid,):
+        headers = {'Accept': self.Accept_type, 'x-api-key': self.api_key, "Content-ype": "application/pdf"}
+        resp = requests.get(self.base_url + '/reportPdf?uuid=' + str(uuid), headers=headers)
+        return resp
+
+
+    def post_generate_report(self, json,headers):
+        resp = requests.post(self.base_url + '/generateReport', headers=headers, json=json)
+        return resp
+
+
+    def post_ReportMetaData(self,json,headers):
+        resp= requests.post(self.base_url_meta + '/reportDataTimelinesForCalendar', headers=headers,json=json )
+        return resp
