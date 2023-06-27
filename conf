@@ -1,0 +1,8 @@
+reporting_cc = ReportComp()
+
+
+
+  reporting_cc.base_url = 'https://owkn69q4t2.execute-api.us-west-2.amazonaws.com/dev/v1/reports'
+    reporting_cc.api_key = '6TfGOd5n6V6138bkrlZtw55yxTx6v93d5vFKnct0'
+    reporting_cc.base_url_meta = 'https://nwyrbucdfc.execute-api.us-west-2.amazonaws.com/dev/v1/reports'
+    reporting_cc.api_key_meta = "A8I6u3t2tK2dOcH8NEfCq71ZDWqV5jYmazMr99TH"
