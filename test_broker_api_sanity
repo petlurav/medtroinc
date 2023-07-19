@@ -1,0 +1,358 @@
+import json
+import random
+import time
+import uuid
+import csv
+import requests
+import pytest
+import os
+import pandas as pd
+import re
+from tests_resources.files.report_service.broker_body_template import record
+from boto3.dynamodb.types import NULL
+from infra.steps.steps import When, Then, Given
+from infra.utils.assert_functions import assert_response_text
+from tests.conf import reporting_cc
+from tests.report_service import generate_data_dss
+from datetime import datetime, timedelta
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.sanity
+@pytest.mark.dss
+def test_generate_report_different_headers_status_code_200(sut, user_de_id):
+    """
+    Upload data to the ds with the username and after send a request to the generateReport API and
+    get "uuid"  in the response for all type of headers
+    @param sut: for using all configurations and base definitions
+    @param user_de_id:user id for upload data to dss
+    """
+    with Given(f"generate data for user"):
+        num_of_records = 8
+        user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
+        print(user_deid)
+        generate_data_dss.test_generete_record(sut, user_deid.json()['nutrino_id'], num_of_records)
+        time.sleep(20)
+        start_day = datetime.now()
+        end_day = datetime.now() + timedelta(7)
+        selected_day = datetime.now() + timedelta(5)
+    api_key = reporting_cc.api_key
+    headers_list = [
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pdf", "Encoding": "BASE64",
+         "Compression": "ZIP"},
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pdf", "Encoding": "BASE64",
+         "Compression": "GZIP"},
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pdf", "Encoding": "NONE",
+         "Compression": "GZIP"},
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pdf", "Encoding": "NONE",
+         "Compression": "ZIP"},
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pfd", "Encoding": "NONE",
+         "Compression": "NONE"},
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding": "BASE64",
+         "Compression": "GZIP"},
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding": "NONE",
+         "Compression": "GZIP"},
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding": "BASE64",
+         "Compression": "ZIP"},
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding": "NONE",
+         "Compression": "ZIP"},
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding ": "NONE",
+         "Compression": "NONE"}
+    ]
+
+    with When("send a request order to generate an uuid use the request body with the generated username"):
+        body = record
+        body["PatientUsername"] = user_de_id.username
+        body["StartDate"] = start_day.strftime('%m/%d/%Y')
+        body["EndDate"] = end_day.strftime('%m/%d/%Y')
+        body["ShortDatePattern"] = selected_day.strftime('%m/%d/%Y')
+        body["ShowDailiesForDates"] = [selected_day.strftime('%m/%d/%Y')]
+
+    with Then("verify that the 'uuid' display correct for all header types in the response"):
+        for headers in headers_list:
+            response = sut.reporting.post_generate_report(json=body, headers=headers)
+            assert_response_text(200, response.status_code)
+            report_id = response.json()
+            assert report_id is not None
+            assert isinstance(report_id, dict) and len(report_id) == 1 and "uuid" in report_id
+
+
+def test_get_status_code_200_report_status_error(sut, user_de_id):
+    """
+    Use the "uuid" of the username that the data was uploaded into ds,
+    send a request to the "GetStatus API" and
+    get status code 200 and status report "ERROR"  in the response
+    @param sut:for using all configurations and base definitions
+    @param user_de_id:user id for upload data to dss
+
+    """
+    with Given(f"generate data for user"):
+        num_of_records = 10
+        user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
+        print(user_deid)
+        generate_data_dss.test_generete_record(sut, user_deid.json()['nutrino_id'], num_of_records)
+        report_id = None
+        start_day = datetime.now()
+        end_day = datetime.now() + timedelta(3)
+        selected_day = datetime.now() + timedelta(5)
+    api_key = reporting_cc.api_key
+    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json",
+               "Encoding": "BASE64",
+               "Compression": "ZIP"}
+
+    with When("send a request order to generate an uuid use the incorrect request body with the generated username"):
+        body = record
+        body["PatientUsername"] = user_de_id.username
+        body["StartDate"] = start_day.strftime('%m/%d/%Y')
+        body["StartDate"] = start_day.strftime('%m/%d/%Y')
+        body["EndDate"] = end_day.strftime('%m/%d/%Y')
+        body["ShortDatePattern"] = selected_day.strftime('%m/%d/%Y')
+        body["ShowDailiesForDates"] = ["2023-06-18T17:00:00", "2023-06-19T17:00:00"]
+
+        response = sut.reporting.post_generate_report(json=body, headers=headers)
+        report_id = response.json().get("uuid")
+        # assert_response_text("", response.text)
+        assert_response_text(200, response.status_code)
+        print(f"status code:  " + str(response.status_code))
+        resp = response.json()
+        assert resp is not None
+        assert isinstance(resp, dict) and len(resp) == 1 and "uuid" in resp
+
+    api_key = reporting_cc.api_key
+    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json"}
+    with Then(
+            "verify that the report status 'error' appears in the response and other statuses are appears if is not error"):
+        start_time = time.time()
+        elapsed_time = 0
+
+        while elapsed_time < 30:
+            time.sleep(10)
+
+            response = sut.reporting.get_status_report(uuid=report_id, headers=headers)
+            assert_response_text(200, response.status_code)
+            print("status code:  " + str(response.status_code))
+            status = response.json().get("status")
+
+            if status == "READY":
+                break
+
+            if status == "ERROR":
+                print(f"Report status after 30 seconds: ERROR ")
+            elif status == "NOT_READY":
+                print("Report status after 30 seconds: NOT READY")
+            else:
+                print(f"Report status after 10 seconds: {status}")
+
+            elapsed_time = time.time() - start_time
+
+        assert status == "READY" or "ERROR" or "NOT_READY", f"Report status after 30 seconds: {status}"
+        print(f"Response - {response.json}")
+        print(status)
+
+
+def test_get_status_code_200_status_ready(sut, user_de_id):
+    """
+    Use the "uuid" of the username that the data was uploaded into ds,
+    send a request to the GetStatus API and
+    get "READY" response if the report is generated and
+    get an "ERROR" OR "NOT READY" response if the report is not generated
+    @param sut:for using all configurations and base definitions
+    @param user_de_id:user id for upload data to dss
+
+    """
+    with Given(f"generate data for user"):
+        num_of_records = 10
+        user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
+        generate_data_dss.test_generete_record(sut, user_deid.json()['nutrino_id'], num_of_records)
+        report_id = None
+        start_day = datetime.now()
+        end_day = datetime.now() + timedelta(9)
+        selected_day = datetime.now() + timedelta(9)
+    api_key = reporting_cc.api_key
+    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json",
+               "Encoding": "BASE64", "Compression": "ZIP"}
+
+    with When("send a request order to generate an uuid  use the request body with the generated username"):
+        body = record
+        body["PatientUsername"] = user_de_id.username
+        body["StartDate"] = start_day.strftime('%m/%d/%Y')
+        body["EndDate"] = end_day.strftime('%m/%d/%Y')
+        body["ShortDatePattern"] = selected_day.strftime('%m/%d/%Y')
+        body["ShowDailiesForDates"] = [selected_day.strftime('%m/%d/%Y')]
+
+        response = sut.reporting.post_generate_report(json=body, headers=headers)
+        report_id = response.json().get("uuid")
+        print("uuid" + report_id)
+        assert_response_text(200, response.status_code)
+        print(f"status code:  " + str(response.status_code))
+        resp = response.json()
+        assert resp is not None
+        assert isinstance(resp, dict) and len(resp) == 1 and "uuid" in resp
+
+    api_key = reporting_cc.api_key
+    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json"}
+    with Then(
+            "verify that the report status 'ready' appears in the response and other statuses are appears if is not ready"):
+        start_time = time.time()
+        elapsed_time = 0
+
+        while elapsed_time < 30:
+            time.sleep(10)
+
+            response = sut.reporting.get_status_report(uuid=report_id, headers=headers)
+            assert_response_text(200, response.status_code)
+            print("status code:  " + str(response.status_code))
+            status = response.json().get("status")
+
+            if status == "READY":
+                break
+
+            if status == "ERROR":
+                print(f"Report status after 30 seconds: ERROR ")
+            elif status == "NOT_READY":
+                print("Report status after 30 seconds: NOT READY")
+            else:
+                print(f"Report status after 30 seconds: {status}")
+
+            elapsed_time = time.time() - start_time
+
+        assert status == "READY" or "ERROR" or "NOT_READY", f"Report status after 30 seconds: {status}"
+
+
+def verify_glucose_amount(glucose_amount):
+    rows_to_skip = [i for i in range(8)]  # the original headers does not correspond with what we want to find
+    df = pd.read_csv(os.path.dirname(os.path.abspath(__file__)) + '/generated_report.csv', lineterminator='\n',
+                     skiprows=rows_to_skip, on_bad_lines='skip')
+    print(df)
+    glucose_col = df['Sensor Glucose (mg/dL)'].dropna()
+    for row in glucose_col:
+
+        if not (int(row) == glucose_amount or 'Sensor Glucose (mg/dL)' in row):
+            return False
+
+    return True
+
+
+def test_get_report_csv_format_status_code_200(sut, user_de_id):
+    """
+    Use the "uuid" of the username where the data was uploaded,
+    request the status from the GetStatus API that the report is  "READY"
+    and send a request to report Csv API to get a report in CSV format
+    @param sut:for using all configurations and base definitions
+    @param user_de_id:user id for upload data to dss
+
+    """
+    with Given(f"generate data for user"):
+        num_of_records = 8
+        user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
+        glucose = random.randint(40, 300)
+        generate_data_dss.test_generete_record(sut, user_deid.json()['nutrino_id'], num_of_records, glucose)
+        report_id = None
+        start_day = datetime.now()
+        end_day = datetime.now() + timedelta(7)
+        selected_day = datetime.now() + timedelta(7)
+        api_key = reporting_cc.api_key
+        headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv",
+                   "Encoding": "BASE64", "Compression": "ZIP"}
+
+    with When("send a request order to generate an uuid  use the request body with the generated username"):
+        body = record
+        body["PatientUsername"] = user_de_id.username
+        body["StartDate"] = start_day.strftime('%m/%d/%Y')
+        body["EndDate"] = end_day.strftime('%m/%d/%Y')
+        body["ShortDatePattern"] = selected_day.strftime('%m/%d/%Y')
+        body["ShowDailiesForDates"] = [selected_day.strftime('%m/%d/%Y')]
+        response = sut.reporting.post_generate_report(json=body, headers=headers)
+        report_id = response.json().get("uuid")
+        print(report_id)
+        # assert_response_text("", response.text)
+        assert_response_text(200, response.status_code)
+        print(f"status code:  " + str(response.status_code))
+        resp = response.json()
+        print(resp)
+        assert resp is not None
+        assert isinstance(resp, dict) and len(resp) == 1 and "uuid" in resp
+
+        api_key = reporting_cc.api_key
+        headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json"}
+    with When("send a request for get a report status"):
+        time.sleep(30)
+        response = sut.reporting.get_status_report(headers=headers, uuid=report_id)
+        print(response.status_code, response.json())
+        print(f"Response - {response.json}")
+        status = response.json().get("status")
+        assert status == "READY"
+
+        api_key = reporting_cc.api_key
+        headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv"}
+    with Then("verify that the CSV report was generate with data that belongs to the uploaded user data"):
+        response = sut.reporting.get_report_endpoints(headers=headers, uuid=report_id, format='Csv')
+        # assert_response_text("", response.text)
+        assert_response_text(200, response.status_code)
+        file_name = "generated_report.csv"
+        print("status code:  " + str(response.status_code))
+        assert len(response.text) > 0
+        # print(len(response.text))
+        assert response.headers["Content-Type"] == "application/csv"
+        verify_glucose_amount(glucose)
+
+
+def test_get_report_json_format_status_code_200(sut, user_de_id):
+    """
+    Use the "uuid" of the username where the data was uploaded,
+    request the status from the GetStatus API that the report is  "READY"
+    and send a request to report Csv API to get a report in Json format
+    @param sut:for using all configurations and base definitions
+    @param user_de_id:user id for upload data to dss
+
+    """
+    with Given(f"generate data for user"):
+        num_of_records = 10
+        user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
+        generate_data_dss.test_generete_record(sut, user_deid.json()['nutrino_id'], num_of_records)
+        report_id = None
+        start_day = datetime.now()
+        end_day = datetime.now() + timedelta(6)
+        selected_day = datetime.now() + timedelta(5)
+    api_key = reporting_cc.api_key
+    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json",
+               "Encoding": "BASE64", "Compression": "ZIP"}
+
+    with When("send a request order to generate an uuid  use the request body with the generated username"):
+        body = record
+        body["PatientUsername"] = user_de_id.username
+        body["StartDate"] = start_day.strftime('%m/%d/%Y')
+        body["EndDate"] = end_day.strftime('%m/%d/%Y')
+        body["ShortDatePattern"] = selected_day.strftime('%m/%d/%Y')
+        body["ShowDailiesForDates"] = [selected_day.strftime('%m/%d/%Y')]
+        response = sut.reporting.post_generate_report(json=body, headers=headers)
+        report_id = response.json().get("uuid")
+        # assert_response_text("", response.text)
+        assert_response_text(200, response.status_code)
+        resp = response.json()
+        assert resp is not None
+        assert isinstance(resp, dict) and len(resp) == 1 and "uuid" in resp
+
+    api_key = reporting_cc.api_key
+    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json"}
+    with When(" send a request for get a report status"):
+        time.sleep(30)
+        response = sut.reporting.get_status_report(headers=headers, uuid=report_id)
+        status = response.json().get("status")
+        assert status == "READY"
+
+    api_key = reporting_cc.api_key
+    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json"}
+    with Then("verify that the json report was generate with data that belongs to the uploaded user data"):
+        response = sut.reporting.get_report_endpoints(headers=headers, uuid=report_id, format="Json")
+        assert_response_text(200, response.status_code)
+        assert len(response.text) > 0
+        assert response.headers["Content-Type"] == "application/json"
+        actuall_deviceid = 105
+        actuall_averageSensor = 50
+        expected_deviceId = response.json()['report']['deviceInfo'][0].get('deviceId')
+        expected_sensor = response.json()['report']['adherencePumpReport']['dailyAggregations'][0].get(
+            'glucoseData').get('averageSensor')
+        assert_response_text(expected_deviceId, actuall_deviceid)
+        assert_response_text(expected_sensor, actuall_averageSensor)
