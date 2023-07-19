@@ -1,0 +1,85 @@
+import requests
+import pytest
+from infra.steps.steps import When, Then, Given
+from infra.utils.assert_functions import assert_response_text
+from tests.conf import reporting_cc
+from tests.report_service import generate_data_dss
+from datetime import datetime, timedelta
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.dss
+def test_post_metadata_api_without_api_key_status_code_403(sut, user_de_id):
+    """
+    Send a request ReportDataTimelinesForCalendar Api without api-key and get status code 403
+    @param sut:for using all configurations and base definitions
+    @param user_de_id:user id for upload data to dss
+    """
+    with Given(f"generate data for user"):
+        user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
+        generate_data_dss.test_generete_record(sut, user_deid.json()['nutrino_id'])
+        start_day = datetime.now()
+        end_day = datetime.now() + timedelta(7)
+
+    headers = {'Accept': "application/json", "ContentType": "application/json"}
+    with When("Generate a uuid"):
+        body = {"PatientUsername": user_de_id.username,
+                "from": start_day.strftime('%Y/%m/%d'),
+                "to": end_day.strftime('%Y/%m/%d')
+                }
+    with When("send a request order to generate an metadata without the api-key"):
+        response = sut.reporting.post_report_metadata(json=body, headers=headers)
+    with Then("verify status code 403 and message Forbidden appears in the response"):
+        assert_response_text(403, response.status_code)
+        response_json = response.json()
+        assert "message" in response_json
+        assert response_json["message"] == "Forbidden"
+
+
+def test_post_metadata_status_code_422(sut, user_de_id):
+    """
+    Send a request to ReportDataTimelinesForCalendar Api with one incorrect field in the body and
+    get status code 422
+    @param sut:for using all configurations and base definitions
+    @param user_de_id:user id for upload data to dss
+    """
+    with Given(f"generate data for user"):
+        user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
+        generate_data_dss.test_generete_recorde_for_post_metadata(sut, user_deid.json()['nutrino_id'])
+        body_assert = ["patientUsername", "from", "to"]
+        properties = "properties"
+
+    api_key = reporting_cc.api_key
+    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json"}
+    with When("send a request order get user metadate use the request body without the required field"):
+        body = {"patientUsername": user_de_id.username
+                }
+    with Then("verify that the status code is 422 and the error message appears with the missing value"):
+        response = sut.reporting.post_report_metadata(json=body, headers=headers)
+        assert_response_text(422, response.status_code)
+        response = response.json()
+        assert "message" in response
+        assert response[
+                   "message"] == f"Payload schema validation failed - data must contain {str(body_assert)} {properties}"
+
+
+def test_get_metadata_api_without_api_key_status_code_403(sut, user_de_id):
+    """
+    Send a request to generate Report Api without api-key and get status code 403
+    @param sut:for using all configurations and base definitions
+    @param user_de_id:user id for upload data to dss
+    """
+    with Given(f"generate data for user"):
+        num_of_records = 8
+        user_de_id.username = None
+        user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
+        generate_data_dss.test_generete_record(sut, user_deid.json()['nutrino_id'], num_of_records)
+        headers = {'Accept': "application/json", "ContentType": "application/json"}
+    with When("send a request order to generate an metadata without the api-key"):
+        response = sut.reporting.get_report_metadata_patients(headers=headers, user=user_de_id.username)
+    with Then("verify status code 403 and message Forbidden appears in the response"):
+        assert_response_text(403, response.status_code)
+        response_json = response.json()
+        assert "message" in response_json
+        assert response_json["message"] == "Forbidden"
