@@ -1,0 +1,181 @@
+import json
+import random
+import time
+
+import pytest
+from datetime import datetime, timedelta
+
+from sqlalchemy import false
+
+from infra.steps.steps import Given
+from tests.dss_tests.test_sanity_dss import key
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.sanity
+@pytest.mark.dss
+# @pytest.mark.xrayjira(test_key="NT-4476")
+def test_create_and_read_request_to_dss(sut, user):
+    res = test_generete_record(user)
+    res = test_generete_recorde_for_post_metadata(user)
+    res = test_data_generete_record_without_deid(user)
+
+
+def test_generete_record(sut, user, num_of_records, glucose=50):
+    exp = {
+        "entries": {}
+    }
+    counter = 1
+    for i in range(0, num_of_records):
+        activityTimestamp = datetime.now() + timedelta(i)
+        time_format = datetime.fromtimestamp(
+            int(datetime.timestamp(activityTimestamp) * 1000) / 1000).isoformat()
+        time_new = time_format + "+00:00"
+        selected_day = datetime.now() + timedelta(i)
+        record = {
+            'timeEpochMs': int(datetime.timestamp(selected_day) * 1000),
+            'tzName': 'Europe/London',
+            'activityTimestamp': time_new,
+            'userId': user,
+            'entryType': "PUMP_SENSOR_GLUCOSE",
+            'dataVersion': '1.0',
+
+            "rawData": {
+                "sequenceNumber": 35,
+                "sensorTime": 978307548,
+                "backfillIndicator": False,
+                "header": {
+                    "rtc": 978307606,
+                    "eventId": "SENSOR_GLUCOSE",
+                    "epochSessionId": 0,
+                    "dayId": 2,
+                    "guid": "ABCD1234",
+                    "type": "PERIODIC_THERAPY",
+                    "sequenceId": 35
+                },
+                "isig": 2600,
+                "predictiveSg": 100,
+                "vCount": 64,
+                "rateOfChange": 0,
+                "value": glucose,
+                "deviceId": "",
+                "sensorState": "NO_ERROR_MESSAGE"
+            },
+        }
+
+        # record = {'timeEpochMs': int(datetime.timestamp(selected_day) * 1000),
+        #           'tzName': 'Europe/London',
+        #           'activityTimestamp': time_new,
+        #           'userId': user,
+        #           'entryType': "ACTIVE_INSULIN_CLEARED",
+        #           'dataVersion': '1.0',
+        #           "header": {
+        #
+        #               "type": "PERIODIC_THERAPY",
+        #               "sequenceId": 35
+        #           },
+        #
+        #           }
+
+        exp['entries'].update({counter: record})
+        counter = counter + 1
+
+    response = sut.dss.create(exp, not_for_deletion=True)
+
+
+def test_generete_recorde_for_post_metadata(sut, user):
+    exp = {
+        "entries": {}
+    }
+    counter = 1
+    for i in range(0, 10, 2):
+        activityTimestamp = datetime.now()
+        time_format = datetime.fromtimestamp(
+            int(datetime.timestamp(activityTimestamp) * 1000) / 1000).isoformat()
+        time_new = time_format + "+00:00"
+        selected_day = datetime.now() + timedelta(i)
+
+        record = {
+            'timeEpochMs': int(datetime.timestamp(selected_day) * 1000),
+            'tzName': 'Europe/London',
+            'activityTimestamp': time_new,
+            'userId': user,
+            'entryType': "PUMP_SENSOR_GLUCOSE",
+            'dataVersion': '1.0',
+
+            "rawData": {
+                "sequenceNumber": 35,
+                "sensorTime": 978307548,
+                "backfillIndicator": False,
+                "header": {
+                    "rtc": 978307606,
+                    "eventId": "SENSOR_GLUCOSE",
+                    "epochSessionId": 0,
+                    "dayId": 2,
+                    "guid": "ABCD1234",
+                    "type": "PERIODIC_THERAPY",
+                    "sequenceId": 35
+                },
+                "isig": 2600,
+                "predictiveSg": 100,
+                "vCount": 64,
+                "rateOfChange": 0,
+                "value": 100,
+                "deviceId": "",
+                "sensorState": "NO_ERROR_MESSAGE"
+            },
+        }
+
+        exp['entries'].update({counter: record})
+        counter = counter + 1
+    response = sut.dss.create(exp, not_for_deletion=True)
+
+
+def test_data_generete_record_without_deid(sut, user):
+    exp = {
+        "entries": {}
+    }
+    counter = 1
+    for i in range(0, 10):
+        activityTimestamp = datetime.now()
+        time_format = datetime.fromtimestamp(
+            int(datetime.timestamp(activityTimestamp) * 1000) / 1000).isoformat()
+        time_new = time_format + "+00:00"
+        selected_day = datetime.now() + timedelta(i)
+
+        record = {
+            'timeEpochMs': int(datetime.timestamp(selected_day) * 1000),
+            'tzName': 'Europe/London',
+            'activityTimestamp': datetime.fromtimestamp(
+                int(datetime.timestamp(activityTimestamp) * 1000) / 1000).isoformat(),
+            'userId': user.username,
+            'entryType': "PUMP_SENSOR_GLUCOSE",
+            'dataVersion': '1.0',
+
+            "rawData": {
+                "sequenceNumber": 35,
+                "sensorTime": 978307548,
+                "backfillIndicator": False,
+                "header": {
+                    "rtc": 978307606,
+                    "eventId": "SENSOR_GLUCOSE",
+                    "epochSessionId": 0,
+                    "dayId": 2,
+                    "guid": "ABCD1234",
+                    "type": "PERIODIC_THERAPY",
+                    "sequenceId": 35
+                },
+                "isig": 2600,
+                "predictiveSg": 100,
+                "vCount": 64,
+                "rateOfChange": 0,
+                "value": 100,
+                "deviceId": "",
+                "sensorState": "NO_ERROR_MESSAGE"
+            },
+        }
+
+        exp['entries'].update({counter: record})
+        counter = counter + 1
+    response = sut.dss.create(exp, not_for_deletion=True)
