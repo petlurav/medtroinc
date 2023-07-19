@@ -1,0 +1,217 @@
+record = {"PatientUsername": "",
+          "UICulture": "en-GB",
+          "DateSeparator": "/",
+          "TimeSeparator": ":",
+          "LongTimePattern": "hh:mm:ss tt",
+          "ShortDatePattern": "",
+          "ShortTimePattern": "h:mm tt",
+          "CountryCode": "GB",
+          "AbbreviatedDayNames": [
+              "Su",
+              "Mo",
+              "Tu",
+              "We",
+              "Th",
+              "Fr",
+              "Sa"
+          ],
+          "DayNames": [
+              "Sunday",
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday",
+              "Saturday"
+          ],
+          "RecordSeparator": ",",
+          "GlucoseUnits": "mgdL",
+          "CarbUnits": "grams",
+          "GramsToAnExchange": 15,
+          "FirstName": "TEST",
+          "LastName": "TEST",
+          "StartDate": "",
+          "EndDate": "",
+          "BgTargetLow": 70,
+          "BgTargetHigh": 180,
+          "BgTargetExtremeLow": 54,
+          "BgTargetExtremeHigh": 250,
+          "ShowReports": [
+              "ShowAdherenceReport",
+
+          ],
+          "ShowDailiesForDates": [
+              "",
+
+          ],
+          "MealPeriods": [
+              {
+                  "PreBGTargetLow": 70,
+                  "PreBGTargetHigh": 140,
+                  "PostBGTargetLow": 100,
+                  "PostBGTargetHigh": 160,
+                  "PreAnalysisPeriod": 60,
+                  "PostAnalysisPeriodStart": 60,
+                  "PostAnalysisPeriodEnd": 180,
+                  "Label": "Breakfast",
+                  "StartMinOfDay": 360,
+                  "EndMinOfDay": 600
+              },
+              {
+                  "PreBGTargetLow": 70,
+                  "PreBGTargetHigh": 140,
+                  "PostBGTargetLow": 100,
+                  "PostBGTargetHigh": 160,
+                  "PreAnalysisPeriod": 60,
+                  "PostAnalysisPeriodStart": 60,
+                  "PostAnalysisPeriodEnd": 180,
+                  "Label": "Lunch",
+                  "StartMinOfDay": 660,
+                  "EndMinOfDay": 900
+              },
+              {
+                  "PreBGTargetLow": 70,
+                  "PreBGTargetHigh": 140,
+                  "PostBGTargetLow": 100,
+                  "PostBGTargetHigh": 160,
+                  "PreAnalysisPeriod": 60,
+                  "PostAnalysisPeriodStart": 60,
+                  "PostAnalysisPeriodEnd": 180,
+                  "Label": "Dinner",
+                  "StartMinOfDay": 960,
+                  "EndMinOfDay": 1320
+              },
+              {
+                  "PreBGTargetLow": 70,
+                  "PreBGTargetHigh": 140,
+                  "PostBGTargetLow": 100,
+                  "PostBGTargetHigh": 160,
+                  "PreAnalysisPeriod": 60,
+                  "PostAnalysisPeriodStart": 60,
+                  "PostAnalysisPeriodEnd": 180,
+                  "Label": "Overnight",
+                  "StartMinOfDay": 1320,
+                  "EndMinOfDay": 360
+              }
+          ],
+          "BedtimeBucket": {
+              "Label": "Bedtime",
+              "StartMinOfDay": 1200,
+              "EndMinOfDay": 0
+          },
+          "WakeupBucket": {
+              "Label": "Wake Up",
+              "StartMinOfDay": 300,
+              "EndMinOfDay": 540
+          },
+          "ClientTime": "2023-06-27T10:30:41"
+          }
+
+error_record = {"PatientUsername": "",
+
+                "DateSeparator": "/",
+                "TimeSeparator": ":",
+                "LongTimePattern": "hh:mm:ss tt",
+                "ShortDatePattern": "",
+                "ShortTimePattern": "h:mm tt",
+                "CountryCode": "GB",
+                "AbbreviatedDayNames": [
+                    "Su",
+                    "Mo",
+                    "Tu",
+                    "We",
+                    "Th",
+                    "Fr",
+                    "Sa"
+                ],
+                "DayNames": [
+                    "Sunday",
+                    "Monday",
+                    "Tuesday",
+                    "Wednesday",
+                    "Thursday",
+                    "Friday",
+                    "Saturday"
+                ],
+                "RecordSeparator": ",",
+                "GlucoseUnits": "mgdL",
+                "CarbUnits": "grams",
+                "GramsToAnExchange": 15,
+                "FirstName": "TEST",
+                "LastName": "TEST",
+                "StartDate": "",
+                "EndDate": "",
+                "BgTargetLow": 70,
+                "BgTargetHigh": 180,
+                "BgTargetExtremeLow": 54,
+                "BgTargetExtremeHigh": 250,
+                "ShowReports": [
+                    "ShowAdherenceReport",
+
+                ],
+                "ShowDailiesForDates": [
+                    "",
+
+                ],
+                "MealPeriods": [
+                    {
+                        "PreBGTargetLow": 70,
+                        "PreBGTargetHigh": 140,
+                        "PostBGTargetLow": 100,
+                        "PostBGTargetHigh": 160,
+                        "PreAnalysisPeriod": 60,
+                        "PostAnalysisPeriodStart": 60,
+                        "PostAnalysisPeriodEnd": 180,
+                        "Label": "Breakfast",
+                        "StartMinOfDay": 360,
+                        "EndMinOfDay": 600
+                    },
+                    {
+                        "PreBGTargetLow": 70,
+                        "PreBGTargetHigh": 140,
+                        "PostBGTargetLow": 100,
+                        "PostBGTargetHigh": 160,
+                        "PreAnalysisPeriod": 60,
+                        "PostAnalysisPeriodStart": 60,
+                        "PostAnalysisPeriodEnd": 180,
+                        "Label": "Lunch",
+                        "StartMinOfDay": 660,
+                        "EndMinOfDay": 900
+                    },
+                    {
+                        "PreBGTargetLow": 70,
+                        "PreBGTargetHigh": 140,
+                        "PostBGTargetLow": 100,
+                        "PostBGTargetHigh": 160,
+                        "PreAnalysisPeriod": 60,
+                        "PostAnalysisPeriodStart": 60,
+                        "PostAnalysisPeriodEnd": 180,
+                        "Label": "Dinner",
+                        "StartMinOfDay": 960,
+                        "EndMinOfDay": 1320
+                    },
+                    {
+                        "PreBGTargetLow": 70,
+                        "PreBGTargetHigh": 140,
+                        "PostBGTargetLow": 100,
+                        "PostBGTargetHigh": 160,
+                        "PreAnalysisPeriod": 60,
+                        "PostAnalysisPeriodStart": 60,
+                        "PostAnalysisPeriodEnd": 180,
+                        "Label": "Overnight",
+                        "StartMinOfDay": 1320,
+                        "EndMinOfDay": 360
+                    }
+                ],
+                "BedtimeBucket": {
+                    "Label": "Bedtime",
+                    "StartMinOfDay": 1200,
+                    "EndMinOfDay": 0
+                },
+                "WakeupBucket": {
+                    "Label": "Wake Up",
+                    "StartMinOfDay": 300,
+                    "EndMinOfDay": 540
+                },
+                "ClientTime": "2023-06-27T10:30:41"
+                }
