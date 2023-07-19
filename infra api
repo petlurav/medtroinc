@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timedelta
 
 import requests
 import json
@@ -10,53 +11,88 @@ from infra.component.auth_component import AuthComponent
 from infra.utils.assert_functions import assert_response_text, multiple_assert_response_options_text
 
 
-
 class ReportComp(AuthComponent):
-
 
     def __init__(self):
         super().__init__()
         self.base_url = None
-        self.header = None
         self.api_url = None
         self.base_url_meta = None
-
 
     def close(self):
         super().close()
         """
         Delete all users' 
         """
+
     def init(self):
         super().init()
         assert self.base_url is not None
         assert self.api_key is not None
-        assert self.api_key_meta is not None
-        assert self.base_url_meta  is not None
+        assert self.base_url_meta is not None
 
-
-
-    def get_status_report(self, uuid,headers):
-
+    def get_status_report(self, uuid, headers):
+        """
+        Get the status of the process generation of the report.
+        @param uuid:id of the user
+        @param headers:headers of the request
+        @return:statuses type"READY" if the report is generated and
+        "ERROR" OR "NOT READY" if the report is not generated
+        """
         resp = requests.get(self.base_url + '/reportStatus?uuid=' + str(uuid), headers=headers)
         return resp
 
-    def get_report_csv(self, uuid,headers):
-
-        resp = requests.get(self.base_url + '/reportCsv?uuid=' + str(uuid), headers=headers)
+    def get_report_endpoints(self, headers, format, uuid):
+        """
+        Get reports in different formats
+        @param headers: headers of the request
+        @param format: csv,json,pdf
+        @param uuid: id of the user
+        @return: reports in csv,json,pdf formats
+        """
+        resp = requests.get(self.base_url + f'/report{format}?uuid=' + str(uuid), headers=headers)
         return resp
 
-    def get_report_pdf(self, uuid,):
-        headers = {'Accept': self.Accept_type, 'x-api-key': self.api_key, "Content-ype": "application/pdf"}
-        resp = requests.get(self.base_url + '/reportPdf?uuid=' + str(uuid), headers=headers)
-        return resp
-
-
-    def post_generate_report(self, json,headers):
+    def post_generate_report(self, json, headers):
+        """
+        Get uuid for user
+        @param json: body
+        @param headers:headers of the request
+        @return:uuid of user
+        """
         resp = requests.post(self.base_url + '/generateReport', headers=headers, json=json)
         return resp
 
+    def post_report_metadata(self, json, headers):
+        """
+        Get a relevant number of segments of data for the chosen date range.
+        @param json:body
+        @param headers:headers of the request
+        @return:number of segments the includes date
+        """
+        resp = requests.post(self.base_url_meta + '/reportDataTimelinesForCalendar', headers=headers, json=json)
+        return resp
 
-    def post_ReportMetaData(self,json,headers):
-        resp= requests.post(self.base_url_meta + '/reportDataTimelinesForCalendar', headers=headers,json=json )
+    def get_report_metadata_with_block_day(self, headers, user):
+        """
+        Get a relevant start and end date that includes data until the selected block day.
+        @param headers:headers of the request
+        @param user:username
+        @return:start and end date until the selected block day that includes data.
+        """
+        block_day = datetime.now() + timedelta(5)
+        resp = requests.get(
+            self.base_url_meta + '/reportDataTimelinesRange/patients/' + user + '?reportDataCutoffDate=' + str(
+                block_day.strftime('%Y-%m-%d')),
+            headers=headers)
+        return resp
+
+    def get_report_metadata_patients(self, headers, user):
+        """
+        Get a range of start and end dates that include data
+        @param headers:headers of the request
+        @param user:username
+        @return:start and end dates that include data
+        """
+        resp = requests.get(self.base_url_meta + '/reportDataTimelinesRange/patients/' + str(user), headers=headers)
         return resp
