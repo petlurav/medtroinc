@@ -4,8 +4,7 @@ import pytest
 
 from infra.report.report_manager import ReportManager
 from infra.utils.user_creator import UserCreator
-from tests.dima_test.reporting_cc_sut import ReportingSut
-
+from tests.report_service.reporting_cc_sut import ReportingSut
 
 
 @pytest.fixture(scope="package")
@@ -27,3 +26,12 @@ def user(sut):
     ReportManager().info(f"username {user.username} created")
     yield user
     user.close()
+
+
+@pytest.fixture(scope="function")
+def user_de_id(sut):
+    user = UserCreator(f"test_auth_deid_{int(time.time())}")
+    user.create(de_id_client_id=True)
+    ReportManager().info(f"username {user.username} created")
+    yield user
+    user.close(de_id_client_id=True)
