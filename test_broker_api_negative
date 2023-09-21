@@ -1,17 +1,13 @@
 
 import time
 import uuid
-
 import pytest
-import os
-
-from boto3.dynamodb.types import NULL
 from infra.steps.steps import When, Then, Given
 from infra.utils.assert_functions import assert_response_text
 from tests.conf import reporting_cc
 from tests.report_service import generate_data_dss
 from datetime import datetime, timedelta
-from tests_resources.files.report_service.broker_body_template import record, error_record
+from tests_resources.files.report_service.broker_body_template import valid_record, invalid_record
 
 
 @pytest.mark.daily
@@ -34,30 +30,29 @@ def test_generate_report_error_status_code_422(sut, user_de_id):
         selected_day = datetime.now() + timedelta(5)
     api_key = reporting_cc.api_key
     headers_list = [
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pdf", "Encoding": "BASE64",
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pdf", "Encoding": "BASE64","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "ZIP"},
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pdf", "Encoding": "BASE 64",
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pdf", "Encoding": "BASE 64","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "GZIP"},
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pdf", "Encoding": "NONE",
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pdf", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "GZIP"},
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pdf", "Encoding": "NONE",
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pdf", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "ZIP"},
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pfd", "Encoding": "NONE",
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pfd", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "NONE"},
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding": "BASE 64",
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding": "BASE 64","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "GZIP"},
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding": "NONE",
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "GZIP"},
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding": "BASE 64",
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding": "BASE 64","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "ZIP"},
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding": "NONE",
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "ZIP"},
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding ": "NONE",
+        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding ": "NONE","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "NONE"}
     ]
-    with When("send a request order to generate an uuid use the request body without the required field UICulture "):
-        body = error_record
-        body["PatientUsername"] = user_de_id.username
+    with When("to generate a UUID, send the body of the request with the generated username without the required field UICulture "):
+        body = invalid_record
         body["StartDate"] = start_day.strftime('%m/%d/%Y')
         body["EndDate"] = end_day.strftime('%m/%d/%Y')
         body["ShortDatePattern"] = selected_day.strftime('%m/%d/%Y')
@@ -87,30 +82,29 @@ def test_generate_report_error_status_code_403(sut, user_de_id):
         end_day = datetime.now() + timedelta(7)
         selected_day = datetime.now() + timedelta(5)
     headers_list = [
-        {'Accept': "application/json", "ContentType": "application/pdf", "Encoding": "BASE64",
+        {'Accept': "application/json", "ContentType": "application/pdf", "Encoding": "BASE64","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "ZIP"},
-        {'Accept': "application/json", "ContentType": "application/pdf", "Encoding": "BASE 64",
+        {'Accept': "application/json", "ContentType": "application/pdf", "Encoding": "BASE 64","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "GZIP"},
-        {'Accept': "application/json", "ContentType": "application/pdf", "Encoding": "NONE",
+        {'Accept': "application/json", "ContentType": "application/pdf", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "GZIP"},
-        {'Accept': "application/json", "ContentType": "application/pdf", "Encoding": "NONE",
+        {'Accept': "application/json", "ContentType": "application/pdf", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "ZIP"},
-        {'Accept': "application/json", "ContentType": "application/pfd", "Encoding": "NONE",
+        {'Accept': "application/json", "ContentType": "application/pfd", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "NONE"},
-        {'Accept': "application/json", "ContentType": "application/csv", "Encoding": "BASE 64",
+        {'Accept': "application/json", "ContentType": "application/csv", "Encoding": "BASE 64","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "GZIP"},
-        {'Accept': "application/json", "ContentType": "application/csv", "Encoding": "NONE",
+        {'Accept': "application/json", "ContentType": "application/csv", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "GZIP"},
-        {'Accept': "application/json", "ContentType": "application/csv", "Encoding": "BASE 64",
+        {'Accept': "application/json", "ContentType": "application/csv", "Encoding": "BASE 64","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "ZIP"},
-        {'Accept': "application/json", "ContentType": "application/csv", "Encoding": "NONE",
+        {'Accept': "application/json", "ContentType": "application/csv", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "ZIP"},
-        {'Accept': "application/json", "ContentType": "application/csv", "Encoding ": "NONE",
+        {'Accept': "application/json", "ContentType": "application/csv", "Encoding ": "NONE","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "NONE"}
     ]
-    with When("send a request order to generate an uuid without the api-key"):
-        body = record
-        body["PatientUsername"] = user_de_id.username
+    with When("to generate a UUID, send the body of the request with the generated username without the api-key"):
+        body = valid_record
         body["StartDate"] = start_day.strftime('%m/%d/%Y')
         body["EndDate"] = end_day.strftime('%m/%d/%Y')
         body["ShortDatePattern"] = selected_day.strftime('%m/%d/%Y')
@@ -122,7 +116,7 @@ def test_generate_report_error_status_code_403(sut, user_de_id):
                 assert_response_text(403, response.status_code)
                 response_json = response.json()
                 assert "message" in response_json
-                assert response_json["message"] == "Forbidden"
+                assert response_json["message"] == 'Forbidden'
 
 
 def test_get_report_csv_format_status_code_409(sut, user_de_id):
@@ -134,8 +128,8 @@ def test_get_report_csv_format_status_code_409(sut, user_de_id):
     """
     with Given("api-key for reportcsv request"):
         api_key = reporting_cc.api_key
-        headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv"}
-    with When("send request without uuid and status generated"):
+        headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv","Authorization": f"Bearer {user_de_id.token}"}
+    with When("the request should be sent without an UUID and report status"):
         response = sut.reporting.get_report_endpoints(headers=headers, uuid=uuid, format="Csv")
     with Then("verify that the csv report is not generated and the error message appears"):
         assert_response_text(409, response.status_code)
@@ -154,8 +148,8 @@ def test_get_report_json_format_status_code_409(sut, user_de_id):
     """
     with Given("api-key for reportjson request"):
         api_key = reporting_cc.api_key
-        headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json"}
-    with Then("send request without uuid and status generated"):
+        headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
+    with Then("the request should be sent without an UUID and report status "):
         response = sut.reporting.get_report_endpoints(headers=headers, uuid=uuid, format="Csv")
     with Then("verify that the json report is not generated and the error message appears"):
         assert_response_text(409, response.status_code)
@@ -181,12 +175,11 @@ def test_get_report_csv_api_without_api_key_status_code_403(sut, user_de_id):
         end_day = datetime.now() + timedelta(7)
         selected_day = datetime.now() + timedelta(5)
     api_key = reporting_cc.api_key
-    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json",
+    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}",
                "Encoding": "BASE64", "Compression": "ZIP"}
 
-    with When("send a request order to generate an uuid  use the request body with the generated username"):
-        body = record
-        body["PatientUsername"] = user_de_id.username
+    with When("send a request to generate a UUID, use the body of the request with the generated username"):
+        body = valid_record
         body["StartDate"] = start_day.strftime('%m/%d/%Y')
         body["EndDate"] = end_day.strftime('%m/%d/%Y')
         body["ShortDatePattern"] = selected_day.strftime('%m/%d/%Y')
@@ -199,15 +192,15 @@ def test_get_report_csv_api_without_api_key_status_code_403(sut, user_de_id):
         assert isinstance(resp, dict) and len(resp) == 1 and "uuid" in resp
 
     api_key = reporting_cc.api_key
-    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json"}
+    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}",}
     with Then("send a request for get a report status"):
         time.sleep(30)
         response = sut.reporting.get_status_report(headers=headers, uuid=report_id)
         status = response.json().get("status")
         assert status == "READY"
 
-    headers = {'Accept': "application/json", "ContentType": "application/csv"}
-    with When("send a request order to generate an uuid without the api-key"):
+    headers = {'Accept': "application/json", "ContentType": "application/csv","Authorization": f"Bearer {user_de_id.token}",}
+    with When("send a request order to generate a csv report without the api-key"):
         response = sut.reporting.get_report_endpoints(headers=headers, uuid=report_id, format="Csv")
     with Then("verify status code 403 and message Forbidden appears in the response"):
         assert_response_text(403, response.status_code)
@@ -232,12 +225,11 @@ def test_get_report_json_api_without_api_key_status_code_403(sut, user_de_id):
         end_day = datetime.now() + timedelta(7)
         selected_day = datetime.now() + timedelta(5)
     api_key = reporting_cc.api_key
-    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json",
+    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}",
                "Encoding": "BASE64", "Compression": "ZIP"}
 
-    with When("send a request order to generate an uuid  use the request body with the generated username"):
-        body = record
-        body["PatientUsername"] = user_de_id.username
+    with When("send a request to generate a UUID, use the body of the request with the generated username"):
+        body = valid_record
         body["StartDate"] = start_day.strftime('%m/%d/%Y')
         body["EndDate"] = end_day.strftime('%m/%d/%Y')
         body["ShortDatePattern"] = selected_day.strftime('%m/%d/%Y')
@@ -250,15 +242,15 @@ def test_get_report_json_api_without_api_key_status_code_403(sut, user_de_id):
         assert isinstance(resp, dict) and len(resp) == 1 and "uuid" in resp
 
     api_key = reporting_cc.api_key
-    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json"}
+    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
     with When("send a request for get a report status"):
         time.sleep(30)
         response = sut.reporting.get_status_report(headers=headers, uuid=report_id)
         status = response.json().get("status")
         assert status == "READY"
 
-    headers = {'Accept': "application/json", "ContentType": "application/json"}
-    with When("send a request order to generate an uuid without the api-key"):
+    headers = {'Accept': "application/json", "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
+    with When("send a request order to generate a json report without the api-key"):
         response = sut.reporting.get_report_endpoints(headers=headers, uuid=report_id, format="Json")
     with Then("verify status code 403 and message Forbidden appears in the response"):
         assert_response_text(403, response.status_code)
