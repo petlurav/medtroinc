@@ -11,7 +11,7 @@ import re
 from boto3.dynamodb.types import NULL
 from infra.steps.steps import When, Then, Given
 from infra.utils.assert_functions import assert_response_text
-from tests.conf import reporting_cc
+from tests.conf import reporting_cc,api_key
 from tests.report_service import generate_data_dss
 from datetime import datetime, timedelta
 
@@ -20,25 +20,26 @@ from datetime import datetime, timedelta
 @pytest.mark.deployment
 @pytest.mark.sanity
 @pytest.mark.dss
-def test_post_metadata_status_code_204(sut, user):
+def test_post_metadata_status_code_204(sut, user,user_de_id):
     """
     Send a request to "Report Data TimelinesFor Calendar" API
     with the user who has not uploaded the record completely  to ds,and get status code 204
     @param sut:for using all configurations and base definitions
     @param user:user id for upload data to dss
     """
-    with Given(f"generate data for user only without deid only userename"):
+    with Given(f"generate data for user only without deid only username"):
+        user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
         generate_data_dss.test_data_generete_record_without_deid(sut, user)
         start_day = datetime.now()
         end_day = datetime.now() + timedelta(7)
     api_key = reporting_cc.api_key
-    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json"}
+    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
     with When("send a request to the dss by the generated username"):
-        body = {"patientUsername": user.username,
-                "from": start_day.strftime('%Y-%m-%d'),
+        body = { "from": start_day.strftime('%Y-%m-%d'),
                 "to": end_day.strftime('%Y-%m-%d')
                 }
         response = sut.reporting.post_report_metadata(json=body, headers=headers)
+        print(response)
     with Then("verify the response return status code 204"):
         assert_response_text(204, response.status_code)
 
@@ -50,7 +51,7 @@ def generate_expected_segments(days: int) -> [dict[str]]:
     """
 
     segments = []
-    for day in range(0, days + 1, 2):
+    for day in range(0,days + 1, 2):
         start_day = datetime.now() + timedelta(day)
         end_day = datetime.now() + timedelta(day)
         segment = {
@@ -71,33 +72,36 @@ def test_post_metadata_status_code_200(sut, user_de_id):
     """
     with Given(f"generate data for user"):
         user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
-        generate_data_dss.test_generete_recorde_for_post_metadata(sut, user_deid.json()['nutrino_id'])
+        generate_data_dss.test_generete_record_for_post_metadata(sut, user_deid.json()['nutrino_id'])
         start_day = datetime.now()
-        days = 5
-        end_day = datetime.now() + timedelta(days)
+        days = 6
+        end_day = datetime.now() + timedelta(5)
     api_key = reporting_cc.api_key
-    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json"}
-    with When("send a request to the dss by the generated deid and defined dates"):
-        body = {"patientUsername": user_de_id.username,
+    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
+    with When("define the 'from' and 'to' date in 'generate_expected_segments'function and send the request order to generate a segment count"):
+        body = {
                 "from": start_day.strftime('%Y-%m-%d'),
                 "to": end_day.strftime('%Y-%m-%d')
                 }
+        print(body)
         expected_result = {
 
             "dataProvider": [
                 {
                     "segments": generate_expected_segments(days),
                     "category": "UNKNOWN",
-                    "deviceModel": "UNKNOWN"
+                    "deviceModel": "Mini"
 
                 }
             ]
         }
-
+        print(generate_expected_segments(days))
         response = sut.reporting.post_report_metadata(json=body, headers=headers)
     with Then("verify that any date range with data appears as the segment between the defined start and end date"):
         assert_response_text(200, response.status_code)
         actual_result = response.json()
+        print("expected" + str(expected_result), "actual" + str(actual_result))
+
         assert expected_result["dataProvider"] == actual_result["dataProvider"]
 
 
@@ -113,16 +117,16 @@ def test_get_metadata_with_block_date_status_code_200(sut, user_de_id):
         user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
         generate_data_dss.test_generete_record(sut, user_deid.json()['nutrino_id'], num_of_records)
         start_day = datetime.now()
-        end_day = datetime.now() + timedelta(4)
+        end_day = datetime.now() + timedelta(9)
     api_key = reporting_cc.api_key
-    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json"}
+    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
 
-    with When("send a request to the dss by the generated deid and defined block day"):
+    with When("define the start and end dates and send the request order to generate a date with a defined block day"):
         expected_result = {
             "start": start_day.strftime('%Y-%m-%d'),
             "end": end_day.strftime('%Y-%m-%d')
         }
-        response = sut.reporting.get_report_metadata_with_block_day(headers=headers, user=user_de_id.username)
+        response = sut.reporting.get_report_metadata_with_block_day(headers=headers, user=user_deid.json()['nutrino_id'])
     with Then("verify that the start and end date appear until the defined block date "):
         assert_response_text(200, response.status_code)
         actuall_result = response.json()
@@ -142,15 +146,16 @@ def test_get_metadata_without_block_date_status_code_200(sut, user_de_id):
         generate_data_dss.test_generete_record(sut, user_deid.json()['nutrino_id'], num_of_records)
         start_day = datetime.now()
         end_day = datetime.now() + timedelta(14)
+        time.sleep(10)
     api_key = reporting_cc.api_key
-    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json"}
+    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
 
-    with Then("send a request to the dss by the generated deid "):
+    with Then("define the start and end dates "):
         expected_result = {
             "start": start_day.strftime('%Y-%m-%d'),
             "end": end_day.strftime('%Y-%m-%d')
         }
-        response = sut.reporting.get_report_metadata_patients(headers=headers, user=user_de_id.username)
+        response = sut.reporting.get_report_metadata(headers=headers, )
     with Then("verify that the start and end date are displayed for all metadata "):
         assert_response_text(200, response.status_code)
         actuall_result = response.json()
