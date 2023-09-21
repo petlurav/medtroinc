@@ -1,4 +1,3 @@
-import requests
 import pytest
 from infra.steps.steps import When, Then, Given
 from infra.utils.assert_functions import assert_response_text
@@ -17,14 +16,15 @@ def test_post_metadata_api_without_api_key_status_code_403(sut, user_de_id):
     @param user_de_id:user id for upload data to dss
     """
     with Given(f"generate data for user"):
+        num_of_records = 10
         user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
-        generate_data_dss.test_generete_record(sut, user_deid.json()['nutrino_id'])
+        generate_data_dss.test_generete_record(sut, user_deid.json()['nutrino_id'],num_of_records )
         start_day = datetime.now()
         end_day = datetime.now() + timedelta(7)
 
-    headers = {'Accept': "application/json", "ContentType": "application/json"}
+    headers = {'Accept': "application/json", "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
     with When("Generate a uuid"):
-        body = {"PatientUsername": user_de_id.username,
+        body = {"define the start and end dates"
                 "from": start_day.strftime('%Y/%m/%d'),
                 "to": end_day.strftime('%Y/%m/%d')
                 }
@@ -46,12 +46,12 @@ def test_post_metadata_status_code_422(sut, user_de_id):
     """
     with Given(f"generate data for user"):
         user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
-        generate_data_dss.test_generete_recorde_for_post_metadata(sut, user_deid.json()['nutrino_id'])
-        body_assert = ["patientUsername", "from", "to"]
+        generate_data_dss.test_generete_record_for_post_metadata(sut, user_deid.json()['nutrino_id'])
+        body_assert = [ "from", "to"]
         properties = "properties"
 
     api_key = reporting_cc.api_key
-    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json"}
+    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
     with When("send a request order get user metadate use the request body without the required field"):
         body = {"patientUsername": user_de_id.username
                 }
@@ -75,9 +75,9 @@ def test_get_metadata_api_without_api_key_status_code_403(sut, user_de_id):
         user_de_id.username = None
         user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
         generate_data_dss.test_generete_record(sut, user_deid.json()['nutrino_id'], num_of_records)
-        headers = {'Accept': "application/json", "ContentType": "application/json"}
-    with When("send a request order to generate an metadata without the api-key"):
-        response = sut.reporting.get_report_metadata_patients(headers=headers, user=user_de_id.username)
+        headers = {'Accept': "application/json", "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
+    with When("send a request order to generate an metadata dates without the api-key"):
+        response = sut.reporting.get_report_metadata(headers=headers)
     with Then("verify status code 403 and message Forbidden appears in the response"):
         assert_response_text(403, response.status_code)
         response_json = response.json()
