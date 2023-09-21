@@ -1,0 +1,30 @@
+sensor_glucose = {
+            'timeEpochMs': "int(datetime.timestamp(selected_day) * 1000)",
+            'tzName': 'Europe/London',
+            'activityTimestamp': "time_new",
+            'userId': "user",
+            'entryType': "PUMP_SENSOR_GLUCOSE",
+            'dataVersion': '1.0',
+
+            "rawData": {
+                "sequenceNumber": 35,
+                "sensorTime": 978307548,
+                "header": {
+                    "rtc": 978307606,
+                    "eventId": "SENSOR_GLUCOSE",
+                    "epochSessionId": 0,
+                    "dayId": 2,
+                    "guid": "ABCD1234",
+                    "type": "PERIODIC_THERAPY",
+                    "sequenceId": 35
+                },
+                "isig": 2600,
+                "predictiveSg": 100,
+                "vCount": 64,
+                "rateOfChange": 0,
+                "value": "glucose",
+                "deviceId": "",
+                "backfillIndicator": False,
+                "sensorState": "NO_ERROR_MESSAGE"
+            }
+        }
