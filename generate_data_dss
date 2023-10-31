@@ -3,454 +3,66 @@ from datetime import datetime, timedelta
 from tests_resources.files.report_service.data_type_list import sensor_glucose
 
 
+def generate_record(sut, user, num_of_records, glucose):
 
-
-
-
-def test_generete_record(sut, user, num_of_records, glucose=50,):
     exp = {
         "entries": {}
     }
     counter = 1
-
     for i in range(0, num_of_records):
-        activityTimestamp = datetime.now() + timedelta(i)
-        time_format = datetime.fromtimestamp(
-            int(datetime.timestamp(activityTimestamp) * 1000) / 1000).isoformat()
-        time_new = time_format + "+00:00"
         selected_day = datetime.now() + timedelta(i)
-        datatype=sensor_glucose
-        datatype['timeEpochMs'] = int(datetime.timestamp(selected_day) * 1000)
-        datatype['activityTimestamp'] = time_new
-        datatype['userId'] = user
-        datatype["value"] = glucose
-
-        # basal_segment_start = {'timeEpochMs': int(datetime.timestamp(selected_day) * 1000),
-        #            'tzName': 'Europe/London',
-        #            'activityTimestamp': time_new,
-        #            'userId': user,
-        #            'entryType': "PUMP_BASAL_SEGMENT_START",
-        #            'dataVersion': '1.0',
-        #
-        #            "rawData": {
-        #                "sequenceNumber": 30,
-        #                "sensorTime": 978307548,
-        #
-        #                "header": {
-        #                    "rtc": 978307606,
-        #                    "eventId": "BASAL_SEGMENT_START",
-        #                    "epochSessionId": 0,
-        #                    "dayId": 2,
-        #                    "guid": "ABCD1234",
-        #                    "type": "PERIODIC_THERAPY",
-        #                    "sequenceId": 35
-        #                },
-        #                "segmentIndex": 10,
-        #
-        #            }
-        #            }
-        # exp['entries'].update({counter: basal_segment_start})
-        # counter = counter + 1
-        #
-
-
-        exp['entries'].update({counter: sensor_glucose})
+        therapyTime = datetime.fromtimestamp(
+            int(datetime.timestamp(selected_day) * 1000) / 1000).isoformat() + "+03:00"
+        time_format = datetime.fromtimestamp(
+            int(datetime.timestamp(selected_day) * 1000) / 1000).isoformat()
+        time_epoch = int(datetime.timestamp(selected_day) * 1000)
+        record = sensor_glucose(time_epoch=time_epoch, activity_timestamp=time_format,user_id=user,glucose_value=glucose,therapyTime=therapyTime)
+        exp['entries'].update({counter: record})
         counter += 1
-
-        #
-        # # # if i in [2, 4, 6]:
-
-
-
-        # change_time = {'timeEpochMs': int(datetime.timestamp(selected_day) * 1000),
-        #            'tzName': 'Europe/London',
-        #            'activityTimestamp': time_new,
-        #            'userId': user,
-        #            'entryType': "PUMP_CHANGE_TIME",
-        #            'dataVersion': '1.0',
-        #
-        #            "rawData": {
-        #                "sequenceNumber": 35,
-        #                "sensorTime": 978307548,
-        #                "header": {
-        #                    "rtc": 978307606,
-        #                    "eventId": "CHANGE_TIME",
-        #                    "epochSessionId": 0,
-        #                    "dayId": 2,
-        #                    "guid": "ABCD1234",
-        #                    "type": "PERIODIC_THERAPY",
-        #                    "sequenceId": 35
-        #                },
-        #                 "tpyOffsetFromRtcOld" : 34,
-        #                 "tpyOffsetFromRtcOld" : 56,
-        #                 "utcOffsetFromRtcOld" : 10,
-        #                 "tpyOffsetFromRtcNew" : 32,
-        #                 "utcOffsetFromRtcNew" : 75,
-        #
-        #            }
-        #            }
-        #
-        # exp['entries'].update({counter: change_time})
-        # counter = counter + 1
-        #
-        #
-        # insulin_delivery_resumed = {'timeEpochMs': int(datetime.timestamp(selected_day) * 1000),
-        #            'tzName': 'Europe/London',
-        #            'activityTimestamp': time_new,
-        #            'userId': user,
-        #            'entryType': "PUMP_INSULIN_DELIVERY_RESUMED",
-        #            'dataVersion': '1.0',
-        #
-        #            "rawData": {
-        #                "sequenceNumber": 35,
-        #                "sensorTime": 978307548,
-        #                "header": {
-        #                    "rtc": 978307606,
-        #                    "eventId": "INSULIN_DELIVERY_RESUMED",
-        #                    "epochSessionId": 0,
-        #                    "dayId": 2,
-        #                    "guid": "ABCD1234",
-        #                    "type": "PERIODIC_THERAPY",
-        #                    "sequenceId": 35
-        #                },
-        #                "resumptionReason":"PLGM_AUTO_RESUME_DUE_TO_MAX_SUSPENDED_TIME",
-        #
-        #            }
-        #            }
-        # exp['entries'].update({counter: insulin_delivery_resumed})
-        # counter = counter + 1
-        #
-        # sensor_calibration_status = {'timeEpochMs': int(datetime.timestamp(selected_day) * 1000),
-        #        'tzName': 'Europe/London',
-        #        'activityTimestamp': time_new,
-        #        'userId': user,
-        #        'entryType': "PUMP_SENSOR_CALIBRATION_STATUS",
-        #        'dataVersion': '1.0',
-        #
-        #        "rawData": {
-        #            "sequenceNumber": 35,
-        #            "sensorTime": 978307548,
-        #            "header": {
-        #                "rtc": 978307606,
-        #                "eventId": "SENSOR_CALIBRATION_STATUS",
-        #                "epochSessionId": 0,
-        #                "dayId": 2,
-        #                "guid": "ABCD1234",
-        #                "type": "PERIODIC_THERAPY",
-        #                "sequenceId": 35
-        #            },
-        #            "deviceName": "test",
-        #            "calibrationTimeRtc":24,
-        #            "calibrationFactor":67,
-        #            "bgValue" : 35,
-        #            "calibrationResult":"SENSOR_CHANGE",
-        #            "rejectionReason": 4,
-        #
-        #        }
-        #        }
-        #
-        # exp['entries'].update({counter: sensor_calibration_status})
-        # counter = counter + 1
-        #
-        # bolus_option_change = {'timeEpochMs': int(datetime.timestamp(selected_day) * 1000),
-        #            'tzName': 'Europe/London',
-        #            'activityTimestamp': time_new,
-        #            'userId': user,
-        #            'entryType': "PUMP_BOLUS_OPTION_CHANGE",
-        #            'dataVersion': '1.0',
-        #
-        #            "rawData": {
-        #                "sequenceNumber": 3,
-        #                "sensorTime": 978307548,
-        #                "header": {
-        #                    "rtc": 978307606,
-        #                    "eventId": "BOLUS_OPTION_CHANGE",
-        #                    "epochSessionId": 0,
-        #                    "dayId": 1,
-        #                    "guid": "ABCD1234",
-        #                    "type": "PERIODIC_THERAPY",
-        #                    "sequenceId": 3
-        #                },
-        #                "newDualBolusOption":True,
-        #                "newSquareBolusOption":False
-        #            }
-        #            }
-        #
-        # exp['entries'].update({counter: bolus_option_change})
-        # counter = counter + 1
-        #
-        # bolus_canceled = {'timeEpochMs': int(datetime.timestamp(selected_day) * 1000),
-        #            'tzName': 'Europe/London',
-        #            'activityTimestamp': time_new,
-        #            'userId': user,
-        #            'entryType': "PUMP_BOLUS_CANCELED",
-        #            'dataVersion': '1.0',
-        #
-        #            "rawData": {
-        #                "sequenceNumber": 3,
-        #                "sensorTime": 978307548,
-        #                "header": {
-        #                    "rtc": 978307606,
-        #                    "eventId": "BOLUS_CANCELED",
-        #                    "epochSessionId": 0,
-        #                    "dayId": 1,
-        #                    "guid": "ABCD1234",
-        #                    "type": "PERIODIC_THERAPY",
-        #                    "sequenceId": 3
-        #
-        #                },
-        #         "bolusCancellationReason":"ALARM"
-        #
-        #
-        #            },}
-        # exp['entries'].update({counter: bolus_canceled})
-        # counter = counter + 1
-        #
-        # normal_bolus_programmed = {'timeEpochMs': int(datetime.timestamp(selected_day) * 1000),
-        #            'tzName': 'Europe/London',
-        #            'activityTimestamp': time_new,
-        #            'userId': user,
-        #            'entryType': "PUMP_NORMAL_BOLUS_PROGRAMMED ",
-        #            'dataVersion': '1.0',
-        #
-        #            "rawData": {
-        #                "sequenceNumber": 3,
-        #                "sensorTime": 978307548,
-        #                "header": {
-        #                    "rtc": 978307606,
-        #                    "eventId": "NORMAL_BOLUS_PROGRAMMED",
-        #                    "epochSessionId": 0,
-        #                    "dayId": 1,
-        #                    "guid": "ABCD1234",
-        #                    "type": "PERIODIC_THERAPY",
-        #                    "sequenceId": 3
-        #                },
-        #                "amount": 45,
-        #                "bolusSource": "MW_GLUCOSE_CORRECTION_BOLUS",
-        #                "activeInsulin": 120,
-        #                "presetBolusNumber": 34,
-        #                "bolusId": 4557
-        #            },
-        #            }
-        #
-        # exp['entries'].update({counter: normal_bolus_programmed})
-        # counter = counter + 1
-        #
-        # square_bolus_programmed = {'timeEpochMs': int(datetime.timestamp(selected_day) * 1000),
-        #            'tzName': 'Europe/London',
-        #            'activityTimestamp': time_new,
-        #            'userId': user,
-        #            'entryType': "PUMP_SQUARE_BOLUS_PROGRAMMED",
-        #            'dataVersion': '1.0',
-        #
-        #            "rawData": {
-        #                "sequenceNumber": 3,
-        #                "sensorTime": 978307548,
-        #                "header": {
-        #                    "rtc": 978307606,
-        #                    "eventId": "SQUARE_BOLUS_PROGRAMMED",
-        #                    "epochSessionId": 0,
-        #                    "dayId": 1,
-        #                    "guid": "ABCD1234",
-        #                    "type": "PERIODIC_THERAPY",
-        #                    "sequenceId": 3
-        #                },
-        #                 "amount": 67,
-        #                "bolusSource": "MW_FOOD_PLUS_GLUCOSE_CORRECTION_BOLUS",
-        #                "activeInsulin": 134,
-        #                "duration": 56,
-        #                " presetBolusNumber": 59,
-        #                "bolusId": 4558
-        #     },
-        # }
-        # exp['entries'].update({counter: square_bolus_programmed})
-        # counter = counter + 1
-        #
-        # dual_bolus_programmed = {'timeEpochMs': int(datetime.timestamp(selected_day) * 1000),
-        #            'tzName': 'Europe/London',
-        #            'activityTimestamp': time_new,
-        #            'userId': user,
-        #            'entryType': "PUMP_DUAL_BOLUS_PROGRAMMED",
-        #            'dataVersion': '1.0',
-        #
-        #            "rawData": {
-        #                "sequenceNumber": 3,
-        #                "sensorTime": 978307548,
-        #                "header": {
-        #                    "rtc": 978307606,
-        #                    "eventId": "DUAL_BOLUS_PROGRAMMED",
-        #                    "epochSessionId": 0,
-        #                    "dayId": 1,
-        #                    "guid": "ABCD1234",
-        #                    "type": "PERIODIC_THERAPY",
-        #                    "sequenceId": 3
-        #                },
-        #
-        #                    "normalBolusAmount": 50,
-        #                    "squareBolusAmount": 69,
-        #                    "bolusSource": "MW_FOOD_PLUS_GLUCOSE_CORRECTION_BOLUS",
-        #                    "activeInsulin": 134,
-        #                    "duration": 56,
-        #                    " presetBolusNumber": 59,
-        #                    "bolusId": 4558
-        #                },}
-        # exp['entries'].update({counter: dual_bolus_programmed})
-        # counter = counter + 1
-        #
-        # normal_bolus_delivered = {'timeEpochMs': int(datetime.timestamp(selected_day) * 1000),
-        #            'tzName': 'Europe/London',
-        #            'activityTimestamp': time_new,
-        #            'userId': user,
-        #            'entryType': "PUMP_NORMAL_BOLUS_DELIVERED",
-        #            'dataVersion': '1.0',
-        #
-        #            "rawData": {
-        #                "sequenceNumber": 3,
-        #                "sensorTime": 978307548,
-        #                "header": {
-        #                    "rtc": 978307606,
-        #                    "eventId": "NORMAL_BOLUS_DELIVERED",
-        #                    "epochSessionId": 0,
-        #                    "dayId": 1,
-        #                    "guid": "ABCD1234",
-        #                    "type": "PERIODIC_THERAPY",
-        #                    "sequenceId": 3
-        #                },
-        #
-        #                    "deliveredAmount": 39,
-        #                    "bolusType": "NORMAL_BOLUS",
-        #                    "bolusSource": "MW_FOOD_PLUS_GLUCOSE_CORRECTION_BOLUS",
-        #                    "activeInsulin": 134,
-        #                    " presetBolusNumber": 59,
-        #                    "bolusId": 4558
-        #                },}
-        # exp['entries'].update({counter: normal_bolus_delivered})
-        # counter = counter + 1
-        #
-        # square_bolus_delivered = {'timeEpochMs': int(datetime.timestamp(selected_day) * 1000),
-        #            'tzName': 'Europe/London',
-        #            'activityTimestamp': time_new,
-        #            'userId': user,
-        #            'entryType': "PUMP_SQUARE_BOLUS_DELIVERED",
-        #            'dataVersion': '1.0',
-        #
-        #            "rawData": {
-        #                "sequenceNumber": 3,
-        #                "sensorTime": 978307548,
-        #                "header": {
-        #                    "rtc": 978307606,
-        #                    "eventId": "SQUARE_BOLUS_DELIVERED",
-        #                    "epochSessionId": 0,
-        #                    "dayId": 1,
-        #                    "guid": "ABCD1234",
-        #                    "type": "PERIODIC_THERAPY",
-        #                    "sequenceId": 3
-        #                },
-        #                    "deliveredAmount": 39,
-        #                    "bolusType": "NORMAL_BOLUS",
-        #                    "bolusSource": "MW_FOOD_PLUS_GLUCOSE_CORRECTION_BOLUS",
-        #                    "activeInsulin": 134,
-        #                    " presetBolusNumber": 59,
-        #                    "bolusId": 4558,
-        #                    "duration": 56
-        #                },}
-        # exp['entries'].update({counter: square_bolus_delivered})
-        # counter = counter + 1
+        record = basal_segment_start(time_epoch=time_epoch, activity_timestamp=time_format, user_id=user)
+        exp['entries'].update({counter:record})
+        counter = counter + 1
     response = sut.dss.create(exp, is_for_deletion=False)
-def test_generete_record_for_post_metadata(sut, user):
+    assert_response_text(200, response.status_code)
+
+
+def record_uploaded_with_userid(sut, user, num_of_records,glucose= 100):
     exp = {
         "entries": {}
     }
     counter = 1
-    for i in range(0, 6,2):
-        activityTimestamp = datetime.now() + timedelta(i)
-        time_format = datetime.fromtimestamp(
-            int(datetime.timestamp(activityTimestamp) * 1000) / 1000).isoformat()
-        time_new = time_format + "+00:00"
+    for i in range(0, num_of_records):
         selected_day = datetime.now() + timedelta(i)
-
-        record = {
-            'timeEpochMs': int(datetime.timestamp(selected_day) * 1000),
-            'tzName': 'Europe/London',
-            'activityTimestamp': time_new,
-            'userId': user,
-            'entryType': "PUMP_SENSOR_GLUCOSE",
-            'dataVersion': '1.0',
-
-            "rawData": {
-                "sequenceNumber": 35,
-                "sensorTime": 978307548,
-                "backfillIndicator": False,
-                "header": {
-                    "rtc": 978307606,
-                    "eventId": "SENSOR_GLUCOSE",
-                    "epochSessionId": 0,
-                    "dayId": 2,
-                    "guid": "ABCD1234",
-                    "type": "PERIODIC_THERAPY",
-                    "sequenceId": 35
-                },
-                "isig": 2600,
-                "predictiveSg": 100,
-                "vCount": 64,
-                "rateOfChange": 0,
-                "value": 100,
-                "deviceId": "",
-                "sensorState": "NO_ERROR_MESSAGE"
-            },
-        }
-
+        therapyTime = datetime.fromtimestamp(
+            int(datetime.timestamp(selected_day) * 1000) / 1000).isoformat() + "+00:00"
+        time_format = datetime.fromtimestamp(
+            int(datetime.timestamp(selected_day) * 1000) / 1000).isoformat() + "+00:00"
+        time_epoch = int(datetime.timestamp(selected_day) * 1000)
+        record = sensor_glucose(time_epoch=time_epoch, activity_timestamp=time_format, user_id=user.username,glucose_value=glucose,therapyTime=therapyTime)
         exp['entries'].update({counter: record})
-        counter = counter + 1
-
+        counter += 1
     response = sut.dss.create(exp, is_for_deletion=False)
+    assert_response_text(200, response.status_code)
 
-
-def test_data_generete_record_without_deid(sut, user):
+def record_for_post_metadata(sut, user,glucose=45):
     exp = {
         "entries": {}
     }
     counter = 1
-    for i in range(0, 10):
-        activityTimestamp = datetime.now()
-        time_format = datetime.fromtimestamp(
-            int(datetime.timestamp(activityTimestamp) * 1000) / 1000).isoformat()
-        time_new = time_format + "+00:00"
+    for i in range(0,6,2):
         selected_day = datetime.now() + timedelta(i)
-
-        record = {
-            'timeEpochMs': int(datetime.timestamp(selected_day) * 1000),
-            'tzName': 'Europe/London',
-            'activityTimestamp': datetime.fromtimestamp(
-                int(datetime.timestamp(activityTimestamp) * 1000) / 1000).isoformat(),
-            'userId': user.username,
-            'entryType': "PUMP_SENSOR_GLUCOSE",
-            'dataVersion': '1.0',
-
-            "rawData": {
-                "sequenceNumber": 35,
-                "sensorTime": 978307548,
-                "backfillIndicator": False,
-                "header": {
-                    "rtc": 978307606,
-                    "eventId": "SENSOR_GLUCOSE",
-                    "epochSessionId": 0,
-                    "dayId": 2,
-                    "guid": "ABCD1234",
-                    "type": "PERIODIC_THERAPY",
-                    "sequenceId": 35
-                },
-                "isig": 2600,
-                "predictiveSg": 100,
-                "vCount": 64,
-                "rateOfChange": 0,
-                "value": 100,
-                "deviceId": "",
-                "sensorState": "NO_ERROR_MESSAGE"
-            },
-        }
-
-        exp['entries'].update({counter: record})
-        counter = counter + 1
-        print(record)
+        therapyTime = datetime.fromtimestamp(
+            int(datetime.timestamp(selected_day) * 1000) / 1000).isoformat() + "+00:00"
+        time_format = datetime.fromtimestamp(
+            int(datetime.timestamp(selected_day) * 1000) / 1000).isoformat() + "+05:00"
+        time_epoch = int(datetime.timestamp(selected_day) * 1000)
+        record = sensor_glucose(time_epoch=time_epoch, activity_timestamp=time_format, user_id=user,glucose_value=glucose,therapyTime=therapyTime)
+        exp['entries'].update({counter:record})
+        counter += 1
     response = sut.dss.create(exp, is_for_deletion=False)
+    assert_response_text(200, response.status_code)
+
+
+
+
+
