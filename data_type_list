@@ -1,30 +1,59 @@
-sensor_glucose = {
-            'timeEpochMs': "int(datetime.timestamp(selected_day) * 1000)",
+def sensor_glucose(time_epoch, activity_timestamp, user_id, glucose_value):
+    return {
+            'timeEpochMs': time_epoch,
             'tzName': 'Europe/London',
-            'activityTimestamp': "time_new",
-            'userId': "user",
+            'activityTimestamp': activity_timestamp,
+            'userId': user_id,
             'entryType': "PUMP_SENSOR_GLUCOSE",
             'dataVersion': '1.0',
 
             "rawData": {
                 "sequenceNumber": 35,
-                "sensorTime": 978307548,
+                "sensorTime": 1698241976,
                 "header": {
-                    "rtc": 978307606,
+                    "rtc": 1698241976,
                     "eventId": "SENSOR_GLUCOSE",
                     "epochSessionId": 0,
                     "dayId": 2,
                     "guid": "ABCD1234",
                     "type": "PERIODIC_THERAPY",
                     "sequenceId": 35
-                },
-                "isig": 2600,
+                    },
+                "isig": 20,
                 "predictiveSg": 100,
                 "vCount": 64,
                 "rateOfChange": 0,
-                "value": "glucose",
-                "deviceId": "",
-                "backfillIndicator": False,
+                "value": glucose_value,
+                "deviceId": 50,
+                "backfillIndicator": True,
                 "sensorState": "NO_ERROR_MESSAGE"
             }
         }
+
+def basal_segment_start(time_epoch, activity_timestamp, user_id):
+    return {
+    'timeEpochMs': time_epoch,
+    'tzName': 'Europe/London',
+    'activityTimestamp': activity_timestamp,
+    'userId': user_id,
+    'entryType': "PUMP_BASAL_SEGMENT_START",
+    'dataVersion': '1.0',
+
+    "rawData": {
+       "sequenceNumber": 30,
+       "sensorTime": 1698241976,
+
+       "header": {
+           "rtc": 1698241976,
+           "eventId": "BASAL_SEGMENT_START",
+           "epochSessionId": 0,
+           "dayId": 2,
+           "guid": "ABCD1234",
+           "type": "PERIODIC_THERAPY",
+           "sequenceId": 35
+       },
+       "segmentIndex": 10,
+
+    }
+}
+
