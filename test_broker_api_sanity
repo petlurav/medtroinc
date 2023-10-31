@@ -1,259 +1,333 @@
-
+import random
 import time
-import uuid
 import pytest
 from infra.steps.steps import When, Then, Given
 from infra.utils.assert_functions import assert_response_text
-from tests.conf import reporting_cc
-from tests.report_service import generate_data_dss
+from tests.reports_broker_service import common_operations
 from datetime import datetime, timedelta
-from tests_resources.files.report_service.broker_body_template import valid_record, invalid_record
+from tests_resources.files.broker_service.broker_body_template import valid_record
 
 
 @pytest.mark.daily
 @pytest.mark.deployment
-@pytest.mark.dss
-def test_generate_report_error_status_code_422(sut, user_de_id):
+@pytest.mark.sanity
+@pytest.mark.broker_service
+@pytest.mark.xrayjira('COM-4045')
+def test_generate_report_different_headers_status_code_200(sut,report,user_de_id):
     """
-    Send a request to generate Report Api with one incorrect field in the body and
-    get status code 422 for all type of headers
-    @param sut:for using all configurations and base definitions
-    @param user_de_id:user id for upload data to dss
+    upload data with deid to dss,send a request to the generateReport api get "uuid"in the response for all types of headers
+    @param sut: for using all configurations and base definitions
+    @param user_de_id:user deid for upload data to dss
     """
     with Given(f"generate data for user"):
-        num_of_records = 10
+        num_of_records = 8
+        glucose = random.randint(40, 300)
         user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
-        generate_data_dss.test_generete_record(sut, user_deid.json()['nutrino_id'], num_of_records)
+        common_operations.generate_record(sut, user_deid.json()['nutrino_id'], num_of_records,glucose)
         time.sleep(20)
         start_day = datetime.now()
         end_day = datetime.now() + timedelta(7)
         selected_day = datetime.now() + timedelta(5)
-    api_key = reporting_cc.api_key
+
     headers_list = [
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pdf", "Encoding": "BASE64","Authorization": f"Bearer {user_de_id.token}",
+        {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/pdf", "Encoding": "BASE64","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "ZIP"},
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pdf", "Encoding": "BASE 64","Authorization": f"Bearer {user_de_id.token}",
+        {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/pdf", "Encoding": "BASE64","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "GZIP"},
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pdf", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
+        {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/pdf", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "GZIP"},
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pdf", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
+        {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/pdf", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "ZIP"},
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/pfd", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
+        {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/pfd", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "NONE"},
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding": "BASE 64","Authorization": f"Bearer {user_de_id.token}",
+        {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/csv", "Encoding": "BASE64","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "GZIP"},
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
+        {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/csv", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "GZIP"},
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding": "BASE 64","Authorization": f"Bearer {user_de_id.token}",
+        {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/csv", "Encoding": "BASE64","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "ZIP"},
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
+        {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/csv", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "ZIP"},
-        {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv", "Encoding ": "NONE","Authorization": f"Bearer {user_de_id.token}",
+        {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/csv", "Encoding ": "NONE","Authorization": f"Bearer {user_de_id.token}",
          "Compression": "NONE"}
     ]
-    with When("to generate a UUID, send the body of the request with the generated username without the required field UICulture "):
-        body = invalid_record
-        body["StartDate"] = start_day.strftime('%m/%d/%Y')
-        body["EndDate"] = end_day.strftime('%m/%d/%Y')
-        body["ShortDatePattern"] = selected_day.strftime('%m/%d/%Y')
-        body["ShowDailiesForDates"] = [selected_day.strftime('%m/%d/%Y')]
 
-        with Then("verify that the status code is 422 and the error message appears with the missing value"):
-            for headers in headers_list:
-                response = sut.reporting.post_generate_report(json=body, headers=headers)
-                assert_response_text(422, response.status_code)
-                response_json = response.json()
-                assert "message" in response_json
-                assert response_json[
-                           "message"] == "Invalid body schema detected. Got error: 'UICulture' is a required property"
-
-
-def test_generate_report_error_status_code_403(sut, user_de_id):
-    """
-    Send a request to generate Report Api without api-key and get status code 403
-    @param sut:for using all configurations and base definitions
-    @param user_de_id:user id for upload data to dss
-    """
-    with Given(f"generate data for user"):
-        num_of_records = 10
-        user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
-        generate_data_dss.test_generete_record(sut, user_deid.json()['nutrino_id'], num_of_records)
-        start_day = datetime.now()
-        end_day = datetime.now() + timedelta(7)
-        selected_day = datetime.now() + timedelta(5)
-    headers_list = [
-        {'Accept': "application/json", "ContentType": "application/pdf", "Encoding": "BASE64","Authorization": f"Bearer {user_de_id.token}",
-         "Compression": "ZIP"},
-        {'Accept': "application/json", "ContentType": "application/pdf", "Encoding": "BASE 64","Authorization": f"Bearer {user_de_id.token}",
-         "Compression": "GZIP"},
-        {'Accept': "application/json", "ContentType": "application/pdf", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
-         "Compression": "GZIP"},
-        {'Accept': "application/json", "ContentType": "application/pdf", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
-         "Compression": "ZIP"},
-        {'Accept': "application/json", "ContentType": "application/pfd", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
-         "Compression": "NONE"},
-        {'Accept': "application/json", "ContentType": "application/csv", "Encoding": "BASE 64","Authorization": f"Bearer {user_de_id.token}",
-         "Compression": "GZIP"},
-        {'Accept': "application/json", "ContentType": "application/csv", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
-         "Compression": "GZIP"},
-        {'Accept': "application/json", "ContentType": "application/csv", "Encoding": "BASE 64","Authorization": f"Bearer {user_de_id.token}",
-         "Compression": "ZIP"},
-        {'Accept': "application/json", "ContentType": "application/csv", "Encoding": "NONE","Authorization": f"Bearer {user_de_id.token}",
-         "Compression": "ZIP"},
-        {'Accept': "application/json", "ContentType": "application/csv", "Encoding ": "NONE","Authorization": f"Bearer {user_de_id.token}",
-         "Compression": "NONE"}
-    ]
-    with When("to generate a UUID, send the body of the request with the generated username without the api-key"):
+    with When("send the body of the request with the generated deid"):
         body = valid_record
         body["StartDate"] = start_day.strftime('%m/%d/%Y')
         body["EndDate"] = end_day.strftime('%m/%d/%Y')
         body["ShortDatePattern"] = selected_day.strftime('%m/%d/%Y')
         body["ShowDailiesForDates"] = [selected_day.strftime('%m/%d/%Y')]
+    with Then("verify that the 'uuid' display correct for all header types and for the requested patient"):
+        for headers in headers_list:
+            response = sut.broker.post_generate_report(json=body, headers=headers)
+            assert_response_text(200, response.status_code),f"Test was failed status code is:{response.status_code}"
+            report_id = response.json()
+            report.debug(report_id)
+            assert report_id is not None
+            assert isinstance(report_id, dict) and len(report_id) == 1 and "uuid" in report_id,"The test is failed 'uuid' not generated"
 
-        with Then("verify status code 403 and message Forbidden appears in the response"):
-            for headers in headers_list:
-                response = sut.reporting.post_generate_report(json=body, headers=headers)
-                assert_response_text(403, response.status_code)
-                response_json = response.json()
-                assert "message" in response_json
-                assert response_json["message"] == 'Forbidden'
-
-
-def test_get_report_csv_format_status_code_409(sut, user_de_id):
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.sanity
+@pytest.mark.broker_service
+@pytest.mark.xrayjira('COM-4070')
+def test_get_status_code_200_report_status_error(sut,report, user_de_id,user):
     """
-    Send a request to reportCsv Api without uploading data
-    and without creating a "uuid" and get status 409 and a response message.
+    upload data with deid to dss ,send a request to 'generatereport' api,
+    and get the 'uuid' use the 'uuid' to get a report status from the 'getstatus' api request
+    and get status code 200 and status report "ERROR" in the response
     @param sut:for using all configurations and base definitions
-    @param user_de_id:user id for upload data to dss
-    """
-    with Given("api-key for reportcsv request"):
-        api_key = reporting_cc.api_key
-        headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/csv","Authorization": f"Bearer {user_de_id.token}"}
-    with When("the request should be sent without an UUID and report status"):
-        response = sut.reporting.get_report_endpoints(headers=headers, uuid=uuid, format="Csv")
-    with Then("verify that the csv report is not generated and the error message appears"):
-        assert_response_text(409, response.status_code)
-        response_json = response.json()
-        assert "message" in response_json
-        assert response_json[
-                   "message"] == "A report must be in READY status to complete this request. Currently it is in UNKNOWN status"
-
-
-def test_get_report_json_format_status_code_409(sut, user_de_id):
-    """
-    Send a request to reportJson Api without uploading data
-    and without creating a "uuid" and get status 409 and a response message.
-    @param sut:for using all configurations and base definitions
-    @param user_de_id:user id for upload data to dss
-    """
-    with Given("api-key for reportjson request"):
-        api_key = reporting_cc.api_key
-        headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
-    with Then("the request should be sent without an UUID and report status "):
-        response = sut.reporting.get_report_endpoints(headers=headers, uuid=uuid, format="Csv")
-    with Then("verify that the json report is not generated and the error message appears"):
-        assert_response_text(409, response.status_code)
-        response_json = response.json()
-        assert "message" in response_json
-        assert response_json[
-                   "message"] == "A report must be in READY status to complete this request. Currently it is in UNKNOWN status"
-
-
-def test_get_report_csv_api_without_api_key_status_code_403(sut, user_de_id):
-    """
-    Send a request to reportCsv Api for download the csv format report
-    without api-key and get status code 403
-    @param sut:for using all configurations and base definitions
-    @param user_de_id:user id for upload data to dss
+    @param user_de_id:user deid for upload data to dss
     """
     with Given(f"generate data for user"):
         num_of_records = 10
+        glucose = random.randint(40, 300)
         user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
-        generate_data_dss.test_generete_record(sut, user_deid.json()['nutrino_id'], num_of_records)
-        report_id = None
+        common_operations.generate_record(sut,user_deid.json()['nutrino_id'],num_of_records,glucose)
         start_day = datetime.now()
-        end_day = datetime.now() + timedelta(7)
+        end_day = datetime.now() + timedelta(3)
         selected_day = datetime.now() + timedelta(5)
-    api_key = reporting_cc.api_key
-    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}",
-               "Encoding": "BASE64", "Compression": "ZIP"}
 
-    with When("send a request to generate a UUID, use the body of the request with the generated username"):
+    headers = {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/json", "Authorization": f"Bearer {user_de_id.token}",
+               "Encoding": "BASE64","Compression": "ZIP"}
+    with When("sending the body to the 'generatereport' api request with the generated deid to generate a uuid"):
         body = valid_record
+        body["StartDate"] = start_day.strftime('%m/%d/%Y')
         body["StartDate"] = start_day.strftime('%m/%d/%Y')
         body["EndDate"] = end_day.strftime('%m/%d/%Y')
         body["ShortDatePattern"] = selected_day.strftime('%m/%d/%Y')
-        body["ShowDailiesForDates"] = [selected_day.strftime('%m/%d/%Y')]
-        response = sut.reporting.post_generate_report(json=body, headers=headers)
+        body["ShowDailiesForDates"] = ["2023-06-18T17:00:00", "2023-06-19T17:00:00"]
+        response = sut.broker.post_generate_report(json=body, headers=headers)
         report_id = response.json().get("uuid")
-        assert_response_text(200, response.status_code)
+        assert_response_text(200, response.status_code),f"Test was failed status code is:{response.status_code}"
         resp = response.json()
         assert resp is not None
-        assert isinstance(resp, dict) and len(resp) == 1 and "uuid" in resp
+        assert isinstance(resp, dict) and len(resp) == 1 and "uuid" in resp,"The test is failed 'uuid' not generated"
+    headers = {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}",}
+    with Then("verify that the report status 'error' appears in the response"):
+        actual_status = ""
+        expected_status = "ERROR"
+        for _ in range(3):
+            response = sut.broker.get_status_report(uuid=report_id, headers=headers)
+            assert_response_text(200, response.status_code),f"Test was failed status code is:{response.status_code}"
+            status = response.json().get("status")
+            if status == "ERROR":
+                actual_status = "ERROR"
+                report.debug(f"Report status is: ERROR")
+                break
+            elif status == "NOT_READY":
+                report.debug(f"Report status is: NOT READY")
+            else:
+                report.debug(f"Report status is: {status}")
+            time.sleep(10)
+        assert actual_status == expected_status,f"Expected status {expected_status}, Got{actual_status}"
 
-    api_key = reporting_cc.api_key
-    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}",}
-    with Then("send a request for get a report status"):
-        time.sleep(30)
-        response = sut.reporting.get_status_report(headers=headers, uuid=report_id)
-        status = response.json().get("status")
-        assert status == "READY"
 
-    headers = {'Accept': "application/json", "ContentType": "application/csv","Authorization": f"Bearer {user_de_id.token}",}
-    with When("send a request order to generate a csv report without the api-key"):
-        response = sut.reporting.get_report_endpoints(headers=headers, uuid=report_id, format="Csv")
-    with Then("verify status code 403 and message Forbidden appears in the response"):
-        assert_response_text(403, response.status_code)
-        response_json = response.json()
-        assert "message" in response_json
-        assert response_json["message"] == "Forbidden"
-
-
-def test_get_report_json_api_without_api_key_status_code_403(sut, user_de_id):
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.sanity
+@pytest.mark.broker_service
+@pytest.mark.xrayjira('COM-4104')
+def test_get_status_code_200_status_ready(sut,report,user_de_id):
     """
-    Send a request to reportJson Api for download the json format report
-    without api-key and get status code 403
+    upload data with deid to dss ,send a request to 'generatereport' api,
+    and get the 'uuid' use the 'uuid' to get a report status from the 'getstatus' api and
+    get status code 200 and status "READY" in the response
     @param sut:for using all configurations and base definitions
-    @param user_de_id:user id for upload data to dss
+    @param user_de_id:user deid for upload data to dss
     """
     with Given(f"generate data for user"):
         num_of_records = 10
+        glucose = random.randint(40, 300)
         user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
-        generate_data_dss.test_generete_record(sut, user_deid.json()['nutrino_id'], num_of_records)
-        report_id = None
+        common_operations.generate_record(sut, user_deid.json()['nutrino_id'], num_of_records,glucose)
         start_day = datetime.now()
-        end_day = datetime.now() + timedelta(7)
-        selected_day = datetime.now() + timedelta(5)
-    api_key = reporting_cc.api_key
-    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}",
-               "Encoding": "BASE64", "Compression": "ZIP"}
-
-    with When("send a request to generate a UUID, use the body of the request with the generated username"):
+        end_day = datetime.now() + timedelta(9)
+        selected_day = datetime.now() + timedelta(9)
+    headers = {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}",
+                 "Encoding": "BASE64", "Compression": "ZIP"}
+    with When("sending the body to the 'generateReport' api request with the generated deid to generate a uuid"):
         body = valid_record
         body["StartDate"] = start_day.strftime('%m/%d/%Y')
         body["EndDate"] = end_day.strftime('%m/%d/%Y')
         body["ShortDatePattern"] = selected_day.strftime('%m/%d/%Y')
         body["ShowDailiesForDates"] = [selected_day.strftime('%m/%d/%Y')]
-        response = sut.reporting.post_generate_report(json=body, headers=headers)
+        response = sut.broker.post_generate_report(json=body, headers=headers)
         report_id = response.json().get("uuid")
-        assert_response_text(200, response.status_code)
+        assert_response_text(200, response.status_code),f"Test was failed status code is:{response.status_code}"
         resp = response.json()
         assert resp is not None
-        assert isinstance(resp, dict) and len(resp) == 1 and "uuid" in resp
+        assert isinstance(resp, dict) and len(resp) == 1 and "uuid" in resp,"The test is failed 'uuid' not generated"
+    headers = {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
+    with Then("verify that the response returns the status 'READY' "):
+        actual_status = ""
+        expected_status = "READY"
+        for _ in range(3):
+            response = sut.broker.get_status_report(uuid=report_id, headers=headers)
+            assert_response_text(200, response.status_code),f"Test was failed status code is:{response.status_code}"
+            status = response.json().get("status")
+            if status == "READY":
+                actual_status = "READY"
+                report.debug(f"Report status is: READY")
+                break
+            elif status == "NOT_READY":
+                report.debug(f"Report status is: NOT READY")
+            else:
+                report.debug(f"Report status is: {status}")
+            time.sleep(10)
+        assert actual_status == expected_status, f"Expected status {expected_status}, Got{actual_status}"
 
-    api_key = reporting_cc.api_key
-    headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
-    with When("send a request for get a report status"):
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.sanity
+@pytest.mark.broker_service
+@pytest.mark.xrayjira('COM-6266')
+def test_get_status_code_200_status_unknown(sut, report, user_de_id):
+    """
+    upload data with deid to dss ,send a request to 'getstatus' api
+    and get a report status "unknown" and status code 200
+    @param sut:for using all configurations and base definitions
+    @param user_de_id:user deid for upload data to dss
+    """
+    with Given(f"generate data for user"):
+        num_of_records = 10
+        glucose = random.randint(40, 300)
+        user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
+        common_operations.generate_record(sut, user_deid.json()['nutrino_id'], num_of_records,glucose)
+    headers = {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/json",
+               "Authorization": f"Bearer {user_de_id.token}"}
+    with Then("verify that the response returns the status 'UNKNOWN' "):
+        report_id = ""
+        actual_status = ""
+        expected_status = "UNKNOWN"
+        for _ in range(2):
+            response = sut.broker.get_status_report(uuid=report_id,headers=headers)
+            assert_response_text(200, response.status_code), f"Test was failed status code is:{response.status_code}"
+            status = response.json().get("status")
+            if status == "UNKNOWN":
+                actual_status = "UNKNOWN"
+                report.debug(f"Report status is: UNKNOWN")
+                break
+            elif status == "READY":
+                report.debug(f"Report status is: READY")
+            else:
+                report.debug(f"Report status is: {status}")
+            time.sleep(10)
+        assert actual_status == expected_status, f"Expected status {expected_status}, Got{actual_status}"
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.sanity
+@pytest.mark.broker_service
+@pytest.mark.xrayjira('COM-6224')
+
+def test_get_report_csv_format_status_code_200(sut,report, user_de_id):
+    """
+    upload data with deid to dss,send a request to 'generateReport' api
+    and get the 'uuid', use the 'uuid' to get a report status from the 'GetStatus' api request,
+    and send a request to 'reportcsv' api to get a report in csv format
+    @param sut:for using all configurations and base definitions
+    @param user_de_id:user deid for upload data to dss
+    """
+    with Given(f"generate data for user"):
+        num_of_records = 8
+        user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
+        glucose = random.randint(40, 300)
+        common_operations.generate_record(sut, user_deid.json()['nutrino_id'], num_of_records,glucose)
+        start_day = datetime.now()
+        end_day = datetime.now() + timedelta(7)
+        selected_day = datetime.now() + timedelta(7)
+        headers = {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/csv",
+                   "Encoding": "BASE64", "Compression": "ZIP","Authorization": f"Bearer {user_de_id.token}"}
+    with When("send the body to the 'generateReport' api request with the generated deid to generate a uuid"):
+        body = valid_record
+        body["StartDate"] = start_day.strftime('%m/%d/%Y')
+        body["EndDate"] = end_day.strftime('%m/%d/%Y')
+        body["ShortDatePattern"] = selected_day.strftime('%m/%d/%Y')
+        body["ShowDailiesForDates"] = [selected_day.strftime('%m/%d/%Y')]
+        response = sut.broker.post_generate_report(json=body, headers=headers)
+        report_id = response.json().get("uuid")
+        assert_response_text(200, response.status_code),f"Test was failed status code is:{response.status_code}"
+        resp = response.json()
+        assert resp is not None
+        assert isinstance(resp, dict) and len(resp) == 1 and "uuid" in resp,"The test is failed 'uuid' not generated"
+
+        headers = {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
+    with When("send a request to get a report status"):
         time.sleep(30)
-        response = sut.reporting.get_status_report(headers=headers, uuid=report_id)
+        response = sut.broker.get_status_report(headers=headers, uuid=report_id)
         status = response.json().get("status")
-        assert status == "READY"
+        assert status == "READY",f"The test was failed status is: {status}"
+        headers = {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/csv","Authorization": f"Bearer {user_de_id.token}"}
+    with Then("verify that the csv report was generate with data that belongs to the uploaded user data"):
+        response = sut.broker.get_report_endpoints(headers=headers, uuid=report_id, format='Csv')
+        assert_response_text(200, response.status_code),f"Test was failed status code is:{response.status_code}"
+        report.debug(response)
+        report.debug(response.text)
+        file_name = "generated_report.csv"
+    with open(file_name, "w", newline="") as csv_file:
+        csv_file.write(response.text)
+        assert len(response.text) > 0
+        assert "Content-Type" in response.headers and "application/csv" in response.headers ["Content-Type"],f"Test failed the csv report doesn't generated"
 
-    headers = {'Accept': "application/json", "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
-    with When("send a request order to generate a json report without the api-key"):
-        response = sut.reporting.get_report_endpoints(headers=headers, uuid=report_id, format="Json")
-    with Then("verify status code 403 and message Forbidden appears in the response"):
-        assert_response_text(403, response.status_code)
-        response_json = response.json()
-        assert "message" in response_json
-        assert response_json["message"] == "Forbidden"
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.sanity
+@pytest.mark.broker_service
+@pytest.mark.xrayjira('COM-6227')
+def test_get_report_json_format_generated(sut,report, user_de_id):
+    """
+    upload data with deid to dss, send a request to 'generateReport' api
+    and get the 'uuid', use the 'uuid' to get a report status from the 'getstatus' api request,
+    and send a request to the 'reportjson' api to get a report in json format
+    @param sut:for using all configurations and base definitions
+    @param user_de_id:user deid for upload data to dss
+    """
+    with Given(f"generate data for user"):
+        num_of_records = 10
+        glucose = random.randint(40, 300)
+        user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
+        common_operations.generate_record(sut, user_deid.json()['nutrino_id'], num_of_records,glucose)
+        start_day = datetime.now()
+        end_day = datetime.now() + timedelta(6)
+        selected_day = datetime.now() + timedelta(5)
+    headers = {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}",
+               "Encoding": "BASE64", "Compression": "ZIP"}
+
+    with When("send the body to the 'generateReport' api request to generate a uuid"):
+        body = valid_record
+        body["StartDate"] = start_day.strftime('%m/%d/%Y')
+        body["EndDate"] = end_day.strftime('%m/%d/%Y')
+        body["ShortDatePattern"] = selected_day.strftime('%m/%d/%Y')
+        body["ShowDailiesForDates"] = [selected_day.strftime('%m/%d/%Y')]
+        response = sut.broker.post_generate_report(json=body, headers=headers)
+        report_id = response.json().get("uuid")
+        assert_response_text(200, response.status_code),f"Test was failed status code is:{response.status_code}"
+        resp = response.json()
+        assert resp is not None
+        assert isinstance(resp, dict) and len(resp) == 1 and "uuid" in resp,"The test is failed 'uuid' not generated"
+    headers = {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
+    with When(" send a request for get a report status"):
+        time.sleep(30)
+        response = sut.broker.get_status_report(headers=headers, uuid=report_id)
+        status = response.json().get("status")
+        assert status == "READY",f"The test was failed status is: {status}"
+    headers = {'Accept': "application/json", 'x-api-key': sut.broker.api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
+    with Then("verify that the json report was generate with data that belongs to the uploaded user data"):
+        response = sut.broker.get_report_endpoints(headers=headers, uuid=report_id, format="Json")
+        report.debug(response.json())
+        assert_response_text(200, response.status_code),f"Test was failed status code is:{response.status_code}"
+        assert len(response.text) > 0
+        assert response.headers["Content-Type"] == "application/json",f"Test failed the json report doesn't generated"
+        actual_deviceId = 105
+        actual_bg_low = 70
+        actual_bg_high = 180
+        expected_bg_target_high = response.json()['input'].get('bgTargetHigh')
+        expected_bg_target_low = response.json()['input'].get('bgTargetLow')
+        expected_deviceId = response.json()['report']['deviceInfo'][0].get('deviceId')
+        assert_response_text(expected_deviceId, actual_deviceId),f"Expected status {expected_deviceId}, Got{actual_deviceId}"
+        assert_response_text(expected_bg_target_low,actual_bg_low),f"Expected status {expected_bg_target_low}, Got{actual_bg_low}"
+        assert_response_text(expected_bg_target_high,actual_bg_high),f"Expected status {expected_bg_target_high}, Got{actual_bg_high}"
+
