@@ -1,217 +1,114 @@
-record = {"PatientUsername": "",
-          "UICulture": "en-GB",
-          "DateSeparator": "/",
-          "TimeSeparator": ":",
-          "LongTimePattern": "hh:mm:ss tt",
-          "ShortDatePattern": "",
-          "ShortTimePattern": "h:mm tt",
-          "CountryCode": "GB",
-          "AbbreviatedDayNames": [
-              "Su",
-              "Mo",
-              "Tu",
-              "We",
-              "Th",
-              "Fr",
-              "Sa"
-          ],
-          "DayNames": [
-              "Sunday",
-              "Monday",
-              "Tuesday",
-              "Wednesday",
-              "Thursday",
-              "Friday",
-              "Saturday"
-          ],
-          "RecordSeparator": ",",
-          "GlucoseUnits": "mgdL",
-          "CarbUnits": "grams",
-          "GramsToAnExchange": 15,
-          "FirstName": "TEST",
-          "LastName": "TEST",
-          "StartDate": "",
-          "EndDate": "",
-          "BgTargetLow": 70,
-          "BgTargetHigh": 180,
-          "BgTargetExtremeLow": 54,
-          "BgTargetExtremeHigh": 250,
-          "ShowReports": [
-              "ShowAdherenceReport",
+from datetime import datetime, timedelta
 
-          ],
-          "ShowDailiesForDates": [
-              "",
 
-          ],
-          "MealPeriods": [
-              {
-                  "PreBGTargetLow": 70,
-                  "PreBGTargetHigh": 140,
-                  "PostBGTargetLow": 100,
-                  "PostBGTargetHigh": 160,
-                  "PreAnalysisPeriod": 60,
-                  "PostAnalysisPeriodStart": 60,
-                  "PostAnalysisPeriodEnd": 180,
-                  "Label": "Breakfast",
-                  "StartMinOfDay": 360,
-                  "EndMinOfDay": 600
-              },
-              {
-                  "PreBGTargetLow": 70,
-                  "PreBGTargetHigh": 140,
-                  "PostBGTargetLow": 100,
-                  "PostBGTargetHigh": 160,
-                  "PreAnalysisPeriod": 60,
-                  "PostAnalysisPeriodStart": 60,
-                  "PostAnalysisPeriodEnd": 180,
-                  "Label": "Lunch",
-                  "StartMinOfDay": 660,
-                  "EndMinOfDay": 900
-              },
-              {
-                  "PreBGTargetLow": 70,
-                  "PreBGTargetHigh": 140,
-                  "PostBGTargetLow": 100,
-                  "PostBGTargetHigh": 160,
-                  "PreAnalysisPeriod": 60,
-                  "PostAnalysisPeriodStart": 60,
-                  "PostAnalysisPeriodEnd": 180,
-                  "Label": "Dinner",
-                  "StartMinOfDay": 960,
-                  "EndMinOfDay": 1320
-              },
-              {
-                  "PreBGTargetLow": 70,
-                  "PreBGTargetHigh": 140,
-                  "PostBGTargetLow": 100,
-                  "PostBGTargetHigh": 160,
-                  "PreAnalysisPeriod": 60,
-                  "PostAnalysisPeriodStart": 60,
-                  "PostAnalysisPeriodEnd": 180,
-                  "Label": "Overnight",
-                  "StartMinOfDay": 1320,
-                  "EndMinOfDay": 360
-              }
-          ],
-          "BedtimeBucket": {
-              "Label": "Bedtime",
-              "StartMinOfDay": 1200,
-              "EndMinOfDay": 0
-          },
-          "WakeupBucket": {
-              "Label": "Wake Up",
-              "StartMinOfDay": 300,
-              "EndMinOfDay": 540
-          },
-          "ClientTime": "2023-06-27T10:30:41"
-          }
 
-error_record = {"PatientUsername": "",
+def get_body_template(start_day, end_day, selected_day,showDailiesForDates):
+    return {
+        "UICulture": "en-GB",
+        "DateSeparator": "/",
+        "TimeSeparator": ":",
+        "LongTimePattern": "hh:mm:ss tt",
+        "ShortDatePattern": (datetime.now() + timedelta(selected_day)).strftime('%Y-%m-%d'),
+        "ShortTimePattern": "h:mm tt",
+        "CountryCode": "GB",
+        "AbbreviatedDayNames": ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
+        "DayNames": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+        "RecordSeparator": ",",
+        "GlucoseUnits": "mgdL",
+        "CarbUnits": "grams",
+        "GramsToAnExchange": 15,
+        "FirstName": "TEST",
+        "LastName": "TEST",
+        "StartDate": (datetime.now() + timedelta(start_day)).strftime('%Y-%m-%d'),
+        "EndDate": (datetime.now() + timedelta(end_day)).strftime('%Y-%m-%d'),
+        "BgTargetLow": 70,
+        "BgTargetHigh": 180,
+        "BgTargetExtremeLow": 54,
+        "BgTargetExtremeHigh": 250,
+        "ShowReports": ["ShowAdherenceReport"],
+        "ShowDailiesForDates": (datetime.now() + timedelta(showDailiesForDates)).strftime('%Y-%m-%d'),
+        "MealPeriods": get_meal_periods(),
+        "BedtimeBucket": {"Label": "Bedtime", "StartMinOfDay": 1200, "EndMinOfDay": 0},
+        "WakeupBucket": {"Label": "Wake Up", "StartMinOfDay": 300, "EndMinOfDay": 540},
+        "ClientTime": "2023-06-27T10:30:41"
+    }
 
-                "DateSeparator": "/",
-                "TimeSeparator": ":",
-                "LongTimePattern": "hh:mm:ss tt",
-                "ShortDatePattern": "",
-                "ShortTimePattern": "h:mm tt",
-                "CountryCode": "GB",
-                "AbbreviatedDayNames": [
-                    "Su",
-                    "Mo",
-                    "Tu",
-                    "We",
-                    "Th",
-                    "Fr",
-                    "Sa"
-                ],
-                "DayNames": [
-                    "Sunday",
-                    "Monday",
-                    "Tuesday",
-                    "Wednesday",
-                    "Thursday",
-                    "Friday",
-                    "Saturday"
-                ],
-                "RecordSeparator": ",",
-                "GlucoseUnits": "mgdL",
-                "CarbUnits": "grams",
-                "GramsToAnExchange": 15,
-                "FirstName": "TEST",
-                "LastName": "TEST",
-                "StartDate": "",
-                "EndDate": "",
-                "BgTargetLow": 70,
-                "BgTargetHigh": 180,
-                "BgTargetExtremeLow": 54,
-                "BgTargetExtremeHigh": 250,
-                "ShowReports": [
-                    "ShowAdherenceReport",
 
-                ],
-                "ShowDailiesForDates": [
-                    "",
+def get_meal_periods():
+    return [
+        get_meal_period("Breakfast", 360, 600),
+        get_meal_period("Lunch", 660, 900),
+        get_meal_period("Dinner", 960, 1320),
+        get_meal_period("Overnight", 1320, 360)
+    ]
 
-                ],
-                "MealPeriods": [
-                    {
-                        "PreBGTargetLow": 70,
-                        "PreBGTargetHigh": 140,
-                        "PostBGTargetLow": 100,
-                        "PostBGTargetHigh": 160,
-                        "PreAnalysisPeriod": 60,
-                        "PostAnalysisPeriodStart": 60,
-                        "PostAnalysisPeriodEnd": 180,
-                        "Label": "Breakfast",
-                        "StartMinOfDay": 360,
-                        "EndMinOfDay": 600
-                    },
-                    {
-                        "PreBGTargetLow": 70,
-                        "PreBGTargetHigh": 140,
-                        "PostBGTargetLow": 100,
-                        "PostBGTargetHigh": 160,
-                        "PreAnalysisPeriod": 60,
-                        "PostAnalysisPeriodStart": 60,
-                        "PostAnalysisPeriodEnd": 180,
-                        "Label": "Lunch",
-                        "StartMinOfDay": 660,
-                        "EndMinOfDay": 900
-                    },
-                    {
-                        "PreBGTargetLow": 70,
-                        "PreBGTargetHigh": 140,
-                        "PostBGTargetLow": 100,
-                        "PostBGTargetHigh": 160,
-                        "PreAnalysisPeriod": 60,
-                        "PostAnalysisPeriodStart": 60,
-                        "PostAnalysisPeriodEnd": 180,
-                        "Label": "Dinner",
-                        "StartMinOfDay": 960,
-                        "EndMinOfDay": 1320
-                    },
-                    {
-                        "PreBGTargetLow": 70,
-                        "PreBGTargetHigh": 140,
-                        "PostBGTargetLow": 100,
-                        "PostBGTargetHigh": 160,
-                        "PreAnalysisPeriod": 60,
-                        "PostAnalysisPeriodStart": 60,
-                        "PostAnalysisPeriodEnd": 180,
-                        "Label": "Overnight",
-                        "StartMinOfDay": 1320,
-                        "EndMinOfDay": 360
-                    }
-                ],
-                "BedtimeBucket": {
-                    "Label": "Bedtime",
-                    "StartMinOfDay": 1200,
-                    "EndMinOfDay": 0
-                },
-                "WakeupBucket": {
-                    "Label": "Wake Up",
-                    "StartMinOfDay": 300,
-                    "EndMinOfDay": 540
-                },
-                "ClientTime": "2023-06-27T10:30:41"
-                }
+
+def get_meal_period(label, start_min_of_day, end_min_of_day):
+    return {
+        "PreBGTargetLow": 70,
+        "PreBGTargetHigh": 140,
+        "PostBGTargetLow": 100,
+        "PostBGTargetHigh": 160,
+        "PreAnalysisPeriod": 60,
+        "PostAnalysisPeriodStart": 60,
+        "PostAnalysisPeriodEnd": 180,
+        "Label": label,
+        "StartMinOfDay": start_min_of_day,
+        "EndMinOfDay": end_min_of_day
+    }
+
+
+def get_invalid_body_template(start_day, end_day, selected_day):
+    return {
+
+        "DateSeparator": "/",
+        "TimeSeparator": ":",
+        "LongTimePattern": "hh:mm:ss tt",
+        "ShortDatePattern": (datetime.now() + timedelta(selected_day)).strftime('%Y-%m-%d'),
+        "ShortTimePattern": "h:mm tt",
+        "CountryCode": "GB",
+        "AbbreviatedDayNames": ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
+        "DayNames": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+        "RecordSeparator": ",",
+        "GlucoseUnits": "mgdL",
+        "CarbUnits": "grams",
+        "GramsToAnExchange": 15,
+        "FirstName": "TEST",
+        "LastName": "TEST",
+        "StartDate": (datetime.now() + timedelta(start_day)).strftime('%Y-%m-%d'),
+        "EndDate": (datetime.now() + timedelta(end_day)).strftime('%Y-%m-%d'),
+        "BgTargetLow": 70,
+        "BgTargetHigh": 180,
+        "BgTargetExtremeLow": 54,
+        "BgTargetExtremeHigh": 250,
+        "ShowReports": ["ShowAdherenceReport"],
+        "ShowDailiesForDates": [""],
+        "MealPeriods": get_meal_periods(),
+        "BedtimeBucket": {"Label": "Bedtime", "StartMinOfDay": 1200, "EndMinOfDay": 0},
+        "WakeupBucket": {"Label": "Wake Up", "StartMinOfDay": 300, "EndMinOfDay": 540},
+        "ClientTime": "2023-06-27T10:30:41"
+    }
+
+
+def get_meal_periods_for_invalid_body():
+    return [
+        get_meal_period("Breakfast", 360, 600),
+        get_meal_period("Lunch", 660, 900),
+        get_meal_period("Dinner", 960, 1320),
+        get_meal_period("Overnight", 1320, 360)
+    ]
+
+
+def get_meal_period_for_invalid_body(label, start_min_of_day, end_min_of_day):
+    return {
+        "PreBGTargetLow": 70,
+        "PreBGTargetHigh": 140,
+        "PostBGTargetLow": 100,
+        "PostBGTargetHigh": 160,
+        "PreAnalysisPeriod": 60,
+        "PostAnalysisPeriodStart": 60,
+        "PostAnalysisPeriodEnd": 180,
+        "Label": label,
+        "StartMinOfDay": start_min_of_day,
+        "EndMinOfDay": end_min_of_day
+    }
