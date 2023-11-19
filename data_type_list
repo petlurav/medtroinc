@@ -1,3 +1,73 @@
+#first example
+
+
+def create_entry(time_epoch, activity_timestamp, user_id, entry_type, raw_data,therapyTime):
+    return {
+        'timeEpochMs': time_epoch,
+        'tzName': 'Europe/London',
+        'therapyTime': therapyTime,
+        'activityTimestamp': activity_timestamp,
+        'userId': user_id,
+        'entryType': entry_type,
+        'dataVersion': '1.0',
+        'rawData': raw_data
+    }
+
+
+def common_raw_data(sequence_number, sensor_time, event_id, epoch_session_id, day_id, guid, event_type, sequence_id):
+    return {
+        "sequenceNumber": sequence_number,
+        "sensorTime": sensor_time,
+        "header": {
+            "rtc": sensor_time,
+            "eventId": event_id,
+            "epochSessionId": epoch_session_id,
+            "dayId": day_id,
+            "guid": guid,
+            "type": event_type,
+            "sequenceId": sequence_id
+        }
+    }
+
+
+def sensor_glucose(time_epoch, activity_timestamp,therapyTime, user_id, glucose_value):
+    raw_data = common_raw_data(35, 1698241976, "SENSOR_GLUCOSE", 0, 2, "ABCD1234", "PERIODIC_THERAPY", 35)
+    raw_data.update({
+        "isig": 20,
+        "predictiveSg": 100,
+        "vCount": 64,
+        "rateOfChange": 0,
+        "value": glucose_value,
+        "deviceId": 50,
+        "backfillIndicator": True,
+        "sensorState": "NO_ERROR_MESSAGE"
+    })
+
+    return create_entry(time_epoch=time_epoch, activity_timestamp=activity_timestamp,therapyTime=therapyTime, user_id=user_id, entry_type="SENSOR_GLUCOSE", raw_data=raw_data)
+
+
+def basal_segment_start(time_epoch, activity_timestamp,therapyTime, user_id):
+    raw_data = common_raw_data(30, 1698241976, "BASAL_SEGMENT_START", 0, 2, "ABCD1234", "PERIODIC_THERAPY", 35)
+    raw_data.update({
+        "segmentIndex": 10,
+    })
+
+    return create_entry(time_epoch=time_epoch, activity_timestamp=activity_timestamp,therapyTime=therapyTime,entry_type="PUMP_BASAL_SEGMENT_START", user_id=user_id,  raw_data=raw_data)
+
+
+def insulin_delivery_resumed(time_epoch, activity_timestamp,therapyTime, user_id):
+    raw_data = common_raw_data(30, 1698241976, "INSULIN_DELIVERY_RESUMED", 0, 2, "ABCD1234", "PERIODIC_THERAPY", 35)
+    raw_data.update({
+        "resumptionReason": "PLGM_MANUAL_RESUME",
+    })
+
+    return create_entry(time_epoch=time_epoch, activity_timestamp=activity_timestamp,therapyTime=therapyTime,entry_type="INSULIN_DELIVERY_RESUMED", user_id=user_id,  raw_data=raw_data)
+
+
+
+
+
+#seconde example
 def sensor_glucose(time_epoch, activity_timestamp, user_id, glucose_value):
     return {
             'timeEpochMs': time_epoch,
@@ -29,31 +99,4 @@ def sensor_glucose(time_epoch, activity_timestamp, user_id, glucose_value):
                 "sensorState": "NO_ERROR_MESSAGE"
             }
         }
-
-def basal_segment_start(time_epoch, activity_timestamp, user_id):
-    return {
-    'timeEpochMs': time_epoch,
-    'tzName': 'Europe/London',
-    'activityTimestamp': activity_timestamp,
-    'userId': user_id,
-    'entryType': "PUMP_BASAL_SEGMENT_START",
-    'dataVersion': '1.0',
-
-    "rawData": {
-       "sequenceNumber": 30,
-       "sensorTime": 1698241976,
-
-       "header": {
-           "rtc": 1698241976,
-           "eventId": "BASAL_SEGMENT_START",
-           "epochSessionId": 0,
-           "dayId": 2,
-           "guid": "ABCD1234",
-           "type": "PERIODIC_THERAPY",
-           "sequenceId": 35
-       },
-       "segmentIndex": 10,
-
-    }
-}
 
