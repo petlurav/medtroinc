@@ -1,68 +1,239 @@
-
+import time
 from datetime import datetime, timedelta
-from tests_resources.files.report_service.data_type_list import sensor_glucose
+from infra.utils.assert_functions import assert_response_text
+from tests_resources.files.metadata_service.data_type_list import sensor_glucose, basal_segment_start, \
+    insulin_delivery_resumed
+import random
+
+STATUS_OK = 200
+STATUS_CREATED = 201
+STATUS_BAD_REQUEST = 400
+STATUS_UNAUTHORIZED = 401
+STATUS_REDIRECT = 303
+STATUS_NOT_FOUND = 404
+STATUS_INTERNAL_SERVER_ERROR = 500
+STATUS_SERVICE_UNAVAILABLE = 503
+STATUS_NO_CONTENT = 204
 
 
-def generate_record(sut, user, num_of_records, glucose):
+def generate_de_id_user(sut, report, user_token):
+    """
+    Create de_id user and return hashed user id.
+    :param sut: The system under test.
+    :param user_token: Token of the user.
+    :param report: Report manager.
+    :return: Hashed user id.
+    """
+    response_auth = sut.auth.get_auth_authenticate(user_token=user_token)
+    response_auth.raise_for_status()  # Raises an HTTPError for bad responses (4xx or 5xx)
+
+    user_id = response_auth.json()['nutrino_id']
+    assert user_id, "Failed to get user_de_id from the response."
+    report.debug(f"user_de_id is {user_id}")
+    return user_id
+
+
+def generate_broker_service_headers(content_type, encoding, compression, sut, user_de_id):
+    """
+    Create headers for request
+    :param content_type: content type of the request
+    :param encoding: encoding of the request
+    :param compression: compression of the request
+    :param sut: the system under tests
+    :param user_de_id: user deid for upload data to dss
+    :return: headers
+    """
+    return {
+        'Accept': "application/json",
+        'x-api-key': sut.broker.api_key,
+        'ContentType': content_type,
+        'Encoding': encoding,
+        'Authorization': f"Bearer {user_de_id.token}",
+        'Compression': compression
+    }
+
+def generate_broker_service_headers_without_api_key(content_type, encoding, compression, user_de_id):
+    """
+    Create headers for request
+    :param content_type: content type of the request
+    :param encoding: encoding of the request
+    :param compression: compression of the request
+    :param sut: the system under tests
+    :param user_de_id: user deid for upload data to dss
+    :return: headers
+    """
+    return {
+        'Accept': "application/json",
+        'ContentType': content_type,
+        'Encoding': encoding,
+        'Authorization': f"Bearer {user_de_id.token}",
+        'Compression': compression
+    }
+def generate_metadata_service_headers(content_type, encoding, sut, user_de_id):
+    """
+    Create headers for request
+    :param content_type: content type of the request
+    :param encoding: encoding of the request
+    :param sut: the system under tests
+    :param user_de_id: user deid for upload data to dss
+    :return: headers
+    """
+    return {
+        'Accept': "application/json",
+        'x-api-key': sut.metadata.api_key,
+        'ContentType': content_type,
+        'Encoding': encoding,
+        'Authorization': f"Bearer {user_de_id.token}",
+    }
+
+
+def create_and_upload_records_to_dss(sut, user):
+    """
+    Create and upload records to dss
+    :param sut: the system under tests
+    :param user: user id for upload data to dss
+    :return: status 200 if the record uploaded to dss
+    """
+    # 9 records for 9 days (it can be changed to any number of days)
+    num_of_records = 9
+    glucose = random.randint(40, 300)
+
+    records = []
+    for i in range(num_of_records):
+        selected_day = datetime.now() + timedelta(days=i)
+        time_epoch = int(selected_day.timestamp() * 1000)
+        time_format = selected_day.isoformat() + "+00:00"
+        therapyTime = selected_day.isoformat() + "+00:00"
+
+        create_records(glucose=glucose, user=user, records=records, time_epoch=time_epoch, therapyTime=therapyTime,
+                       time_format=time_format)
+
+    payload = {"entries": {i + 1: record for i, record in enumerate(records)}}
+
+    response = sut.dss.create(payload, is_for_deletion=False)
+
+    assert response.status_code == 200, f"Failed to upload records. Status code: {response.status_code}"
+
+
+def record_for_post_metadata(sut, user, glucose):
+    """
+    Define the number of days and create records with the  deid and upload the created record to dss
+    :param sut: the system under tests
+    :param user: user  deid for upload data to dss
+    :param glucose:  define the glucose value for the entry types
+    :return: status 200 if the record uploaded to dss
+    """
+    exp = {
+        "entries": {}
+    }
+    counter = 1
+    for i in range(0, 30, 2):
+        selected_day = datetime.now() + timedelta(i)
+
+        time_format = selected_day.isoformat() + "+00:00"
+        time_epoch = int(selected_day.timestamp() * 1000)
+        record = sensor_glucose(time_epoch=time_epoch,activity_timestamp=time_format,user_id=user,glucose_value=glucose)
+        exp['entries'].update({counter: record})
+        counter += 1
+    response = sut.dss.create(exp, is_for_deletion=False)
+    assert_response_text(200, response.status_code)
+
+
+def get_report_id(sut, body, headers):
+    """
+    send a request to 'reportdatatimelinesforcalendar' api and get the report id
+    @param sut:for using all configurations and base definitions
+    @param headers: headers for the request
+    @param body: body for the request
+   """
+    response = sut.broker.post_generate_report(json=body, headers=headers)
+    report_id = response.json().get("uuid")
+    assert_response_text(200, response.status_code), f"Test was failed status code is:{response.status_code}"
+    resp = response.json()
+    assert resp is not None, "The test is failed 'uuid' not generated"
+    assert isinstance(resp, dict) and len(resp) == 1 and "uuid" in resp, "The test is failed 'uuid' not generated"
+    return report_id
+
+
+
+
+def verify_status(sut, expected_status, max_attempts, report_id, headers, report):
+    status = None
+    for _ in range(max_attempts):
+        response = sut.broker.get_status_report(uuid=report_id, headers=headers)
+        assert_response_text(STATUS_OK, response.status_code), f"Test failed, status code is: {response.status_code}"
+
+        status = response.json().get("status")
+        report.debug(f"Report status is: {status}")
+
+        if status == expected_status:
+            return status
+
+        time.sleep(10)
+
+    return status
+
+
+def create_records(glucose, records, time_epoch, time_format, user, therapyTime):
+    # Creating sensor glucose record
+    records.append(sensor_glucose(time_epoch=time_epoch, activity_timestamp=time_format, user_id=user, glucose_value=glucose,therapyTime=therapyTime ))
+    # Creating basal segment start record
+    records.append(
+        basal_segment_start(time_epoch=time_epoch, activity_timestamp=time_format, user_id=user, therapyTime=therapyTime ))
+
+    # Creating insulin delivery resumed record
+    records.append(insulin_delivery_resumed(time_epoch=time_epoch, activity_timestamp=time_format, user_id=user, therapyTime=therapyTime))
+
+def get_token_and_convert_to_de_id(sut, report, user_token):
+    """
+    Get token and convert to the de_id  for authorization purpose
+    :param sut: the system under tests
+    :param report: pump record to send to the dss
+    :param user_token: token of user
+    :return: hashed user deid
+    """
+    response_auth = sut.auth.get_auth_authenticate(user_token=user_token)
+    assert response_auth.status_code == 200, f"response from auth de_identifer failed. Got status code:" \
+                                             f"{response_auth.status_code}"
+    response_de_id = response_auth.json()['nutrino_id']
+    report.debug(f"user_de_id is {response_de_id}")
+    return response_de_id
+
+
+
+def generate_record(sut, user, num_of_records, glucose,use_deid=True):
+    """
+     Get the number of days and create records with the deid and upload the created record to dss
+    :param sut: the system under tests
+    :param user: user  deid for upload data to dss
+    :param num_of_records: number od record to upload to dss
+    :param glucose:  define the glucose value for the entry types
+    :return: status 200 if the record uploaded to dss
+    """
 
     exp = {
         "entries": {}
     }
     counter = 1
     for i in range(0, num_of_records):
-        selected_day = datetime.now() + timedelta(i)
-        therapyTime = datetime.fromtimestamp(
-            int(datetime.timestamp(selected_day) * 1000) / 1000).isoformat() + "+03:00"
-        time_format = datetime.fromtimestamp(
-            int(datetime.timestamp(selected_day) * 1000) / 1000).isoformat()
-        time_epoch = int(datetime.timestamp(selected_day) * 1000)
-        record = sensor_glucose(time_epoch=time_epoch, activity_timestamp=time_format,user_id=user,glucose_value=glucose,therapyTime=therapyTime)
-        exp['entries'].update({counter: record})
-        counter += 1
-        record = basal_segment_start(time_epoch=time_epoch, activity_timestamp=time_format, user_id=user)
-        exp['entries'].update({counter:record})
-        counter = counter + 1
+        if i % 2 != 0:
+            selected_day = datetime.now() + timedelta(i)
+            time_epoch = int(selected_day.timestamp() * 1000)
+            time_format = selected_day.isoformat() + "+00:00"
+            therapyTime = selected_day.isoformat() + "+00:00"
+            record = sensor_glucose(time_epoch=time_epoch, activity_timestamp=time_format,user_id=user if use_deid else user.username,glucose_value=glucose,therapyTime=therapyTime)
+            exp['entries'].update({counter: record})
+            counter += 1
+            print(record)
+            record = basal_segment_start(time_epoch=time_epoch,therapyTime=therapyTime, activity_timestamp=time_format, user_id=user if use_deid else user.username)
+            exp['entries'].update({counter:record})
+            counter = counter + 1
+            print(record)
+            record = insulin_delivery_resumed(time_epoch=time_epoch,therapyTime=therapyTime, activity_timestamp=time_format, user_id=user if use_deid else user.username)
+            exp['entries'].update({counter: record})
+            counter = counter + 1
+            print(record)
     response = sut.dss.create(exp, is_for_deletion=False)
     assert_response_text(200, response.status_code)
-
-
-def record_uploaded_with_userid(sut, user, num_of_records,glucose= 100):
-    exp = {
-        "entries": {}
-    }
-    counter = 1
-    for i in range(0, num_of_records):
-        selected_day = datetime.now() + timedelta(i)
-        therapyTime = datetime.fromtimestamp(
-            int(datetime.timestamp(selected_day) * 1000) / 1000).isoformat() + "+00:00"
-        time_format = datetime.fromtimestamp(
-            int(datetime.timestamp(selected_day) * 1000) / 1000).isoformat() + "+00:00"
-        time_epoch = int(datetime.timestamp(selected_day) * 1000)
-        record = sensor_glucose(time_epoch=time_epoch, activity_timestamp=time_format, user_id=user.username,glucose_value=glucose,therapyTime=therapyTime)
-        exp['entries'].update({counter: record})
-        counter += 1
-    response = sut.dss.create(exp, is_for_deletion=False)
-    assert_response_text(200, response.status_code)
-
-def record_for_post_metadata(sut, user,glucose=45):
-    exp = {
-        "entries": {}
-    }
-    counter = 1
-    for i in range(0,6,2):
-        selected_day = datetime.now() + timedelta(i)
-        therapyTime = datetime.fromtimestamp(
-            int(datetime.timestamp(selected_day) * 1000) / 1000).isoformat() + "+00:00"
-        time_format = datetime.fromtimestamp(
-            int(datetime.timestamp(selected_day) * 1000) / 1000).isoformat() + "+05:00"
-        time_epoch = int(datetime.timestamp(selected_day) * 1000)
-        record = sensor_glucose(time_epoch=time_epoch, activity_timestamp=time_format, user_id=user,glucose_value=glucose,therapyTime=therapyTime)
-        exp['entries'].update({counter:record})
-        counter += 1
-    response = sut.dss.create(exp, is_for_deletion=False)
-    assert_response_text(200, response.status_code)
-
-
-
 
 
