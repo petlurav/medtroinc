@@ -5,6 +5,10 @@ from tests_resources.files.metadata_service.data_type_list import sensor_glucose
     insulin_delivery_resumed
 import random
 
+
+first example
+
+
 STATUS_OK = 200
 STATUS_CREATED = 201
 STATUS_BAD_REQUEST = 400
@@ -183,6 +187,11 @@ def create_records(glucose, records, time_epoch, time_format, user, therapyTime)
 
     # Creating insulin delivery resumed record
     records.append(insulin_delivery_resumed(time_epoch=time_epoch, activity_timestamp=time_format, user_id=user, therapyTime=therapyTime))
+
+
+
+
+second example
 
 def get_token_and_convert_to_de_id(sut, report, user_token):
     """
