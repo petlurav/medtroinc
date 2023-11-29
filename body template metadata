@@ -1,0 +1,31 @@
+from datetime import datetime, timedelta
+
+
+def get_body_template(start_day, end_day):
+    return {
+        "from": (datetime.now() + timedelta(start_day)).strftime('%Y-%m-%d'),
+        "to": (datetime.now() + timedelta(end_day)).strftime('%Y-%m-%d')
+    }
+
+
+def get_expected_segments(days):
+    """
+    This function counts the data segment between the requested start and end date.
+    @param days: It's the maximum 'end' date the request should take when bringing the dates that have a data
+    """
+
+    return [{
+        "end": (datetime.now() + timedelta(days)).strftime('%Y-%m-%d' + "T00:00:00"),
+        "start": (datetime.now() + timedelta(0)).strftime('%Y-%m-%d' + "T00:00:00")
+    }]
+
+
+def get_expected_response(days):
+    """
+    This function counts the data segment between the requested start and end date.
+    @param days: It's the maximum 'end' date the request should take when bringing the dates that have a data
+    """
+    return {
+        "start": (datetime.now() + timedelta(0)).strftime('%Y-%m-%d'),
+        "end": (datetime.now() + timedelta(days)).strftime('%Y-%m-%d')
+    }
