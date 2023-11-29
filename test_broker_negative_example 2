@@ -1,0 +1,214 @@
+import time
+import pytest
+from infra.steps.steps import When, Then, Given
+from infra.utils.assert_functions import assert_response_text
+from tests.broker_and_metadata_service import common_operations
+from tests.broker_and_metadata_service.broker_body_template import get_body_template
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.negative
+@pytest.mark.broker_service
+@pytest.mark.todo
+@pytest.mark.xrayjira('COM-6258')
+@pytest.mark.parametrize("content_type", ["application/pdf", "application/json", "application/csv"])
+@pytest.mark.parametrize("encoding", ["BASE64", "NONE"])
+@pytest.mark.parametrize("compression", ["ZIP", "GZIP", "NONE"])
+def test_generate_report_error_status_code_422(sut, report, user_de_id, content_type, encoding, compression):
+    """
+    upload data with deid to dss, delete any required key from the body, send a request to 'generatereport' api and
+    get status code 422 for all type of headers
+    :param sut:for using all configurations and base definitions
+    :param user_de_id:user deid for upload data to dss
+    """
+    with Given(f"generate data for user"):
+        response_de_id = common_operations.generate_de_id_user(sut=sut, user_token=user_de_id.token, report=report)
+        common_operations.create_and_upload_records_to_dss(sut=sut, user=response_de_id)
+        # add_error=True to create invalid body to get status code 422
+        body = get_body_template(start_day=7, end_day=5, add_error=True)
+        headers = common_operations.generate_broker_service_headers(content_type, encoding, compression, sut,user_de_id)
+    with When("send the body to the 'generatereport' api request to generate a uuid without the required field UICulture"):
+        response = sut.broker.post_generate_report(json=body, headers=headers)
+        report.debug(response)
+    with Then("verify that the status code is 422 and the error message appears with the missing value"):
+        time.sleep(5)
+        assert_response_text(422, response.status_code), f"Test was failed status code is:{response.status_code}"
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.negative
+@pytest.mark.broker_service
+@pytest.mark.todo
+@pytest.mark.xrayjira('COM-6259')
+@pytest.mark.parametrize("content_type", ["application/pdf", "application/json", "application/csv"])
+@pytest.mark.parametrize("encoding", ["BASE64", "NONE"])
+@pytest.mark.parametrize("compression", ["ZIP", "GZIP", "NONE"])
+def test_generate_report_error_status_code_403(sut, report, user_de_id, content_type, encoding, compression):
+    """
+    upload data with deid to dss,send a request to 'generatereport' api
+    without api-key and get status code 403 and a response message
+    :param sut:for using all configurations and base definitions
+    :param user_de_id:user deid for upload data to dss
+    """
+    with Given(f"generate data for user"):
+        response_de_id = common_operations.generate_de_id_user(sut=sut, user_token=user_de_id.token, report=report)
+        common_operations.create_and_upload_records_to_dss(sut=sut, user=response_de_id)
+        # add_error=True to create invalid header to get status code 403
+        headers = common_operations.generate_broker_service_headers(content_type, encoding, compression, sut,user_de_id, add_error=True)
+    with When("send the body to the 'generatereport' api request without the api-key in the headers"):
+        body = get_body_template(start_day=0, end_day=7)
+    with Then("verify status code 403 and message Forbidden appears in the response"):
+        response = sut.broker.post_generate_report(json=body, headers=headers)
+        report.debug(response)
+        assert_response_text(403, response.status_code), f"Test was failed status code is:{response.status_code}"
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.negative
+@pytest.mark.broker_service
+@pytest.mark.todo
+@pytest.mark.xrayjira('COM-6268')
+def test_get_report_csv_format_status_code_409(sut, report, user_de_id):
+    """
+    send a request to 'reportcsv' api without uploading data
+    and without creating  "uuid" and get status 409 and a response message.
+    :param sut:for using all configurations and base definitions
+    """
+    with Given("headers for 'reportcsv' request"):
+        headers = common_operations.generate_broker_service_headers("application/csv", "BASE64", "GZIP", sut,user_de_id)
+    with When("send the request without a generated 'uuid' and without report the status"):
+        response = sut.broker.get_report_endpoints(headers=headers, uuid="", report_format="Csv")
+        report.debug(response)
+    with Then("verify that the csv report is not generated and the error message appears"):
+        assert_response_text(409, response.status_code), f"Test was failed status code is:{response.status_code}"
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.negative
+@pytest.mark.broker_service
+@pytest.mark.xrayjira('COM-6269')
+def test_get_report_json_format_status_code_409(sut, report, user_de_id):
+    """
+        send a request to 'reportcsv' api without uploading data
+        and without creating  "uuid" and get status 401 and a response message.
+        :param sut:for using all configurations and base definitions
+        """
+    with Given("headers for 'reportjson' request"):
+        headers = common_operations.generate_broker_service_headers("application/json", "BASE64", "GZIP", sut,user_de_id)
+    with When("send the request without a generated 'uuid' and without report the status"):
+        # send a request to 'reportjson' api without uploading data and without creating  "uuid"
+        response = sut.broker.get_report_endpoints(headers=headers, uuid="", report_format="Json")
+        report.debug(response)
+    with Then("verify that the json report is not generated and the error message appears"):
+        assert_response_text(409, response.status_code), f"Test was failed status code is:{response.status_code}"
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.negative
+@pytest.mark.broker_service
+@pytest.mark.xrayjira('COM-6378')
+def test_get_report_pdf_format_status_code_409(sut, report, user_de_id):
+    """
+        send a request to 'reportpdf' api without uploading data
+        and without creating  "uuid" and get status 401 and a response message.
+        :param sut:for using all configurations and base definitions
+        """
+    with Given("headers for 'reportpdf' request"):
+        headers = common_operations.generate_broker_service_headers("application/pdf", "BASE64", "GZIP", sut,user_de_id)
+    with When("send the request without a generated 'uuid' and without report the status"):
+        # send a request to 'reportpdf' api without uploading data and without creating  "uuid"
+        response = sut.broker.get_report_endpoints(headers=headers, uuid="", report_format="Pdf")
+        report.debug(response)
+    with Then("verify that the pdf report is not generated and the error message appears"):
+        assert_response_text(409, response.status_code), f"Test was failed status code is:{response.status_code}"
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.negative
+@pytest.mark.broker_service
+@pytest.mark.todo
+@pytest.mark.xrayjira('COM-6270')
+def test_get_report_csv_api_without_api_key_status_code_403(sut, report, user_de_id):
+    """
+    upload data with deid to dss,send a request to 'generatereport' api
+    and get the 'uuid', use the 'uuid' to get a report status from the 'getstatus' api request,
+    and send a request to 'reportcsv' without api-key and get status code 403 and a response message.
+    :param sut:for using all configurations and base definitions
+    :param user_de_id:user deid for upload data to dss
+    """
+    with Given(f"generate data for user"):
+        response_de_id = common_operations.generate_de_id_user(sut=sut, user_token=user_de_id.token, report=report)
+        common_operations.create_and_upload_records_to_dss(sut=sut, user=response_de_id)
+    with (When("send the body to the 'generateReport' api request with the generated deid to generate a uuid")):
+        headers = common_operations.generate_broker_service_headers("application/csv", "BASE64", "ZIP", sut, user_de_id)
+        body = get_body_template(start_day=0, end_day=7)
+        report_id = common_operations.get_report_id(body=body, headers=headers, sut=sut)
+    with When("send a request order to generate a csv report without the api-key"):
+        # add_error=True to create invalid body to get status code 403
+        headers = common_operations.generate_broker_service_headers("application/csv", "BASE64", "ZIP", sut, user_de_id,add_error=True)
+        response = sut.broker.get_report_endpoints(headers=headers, uuid=report_id, report_format="Csv")
+       report.debug(response)
+    with Then("verify status code 403 and message 'Forbidden' appears in the response"):
+        assert_response_text(403, response.status_code), f"Test was failed status code is:{response.status_code}"
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.negative
+@pytest.mark.broker_service
+@pytest.mark.todo
+@pytest.mark.xrayjira('COM-6290')
+def test_get_report_json_api_without_api_key_status_code_403(sut, report, user_de_id):
+    """
+    upload data with deid to dss,send a request to 'generatereport' api
+    and get the 'uuid', use the 'uuid' to get a report status from the 'getstatus' api request,
+    and send a request to 'reportjson' without api-key and get status code 403 and a response message.
+    :param sut:for using all configurations and base definitions
+    :param user_de_id:user deid for upload data to dss
+    """
+    with Given(f"generate data for user"):
+        response_de_id = common_operations.generate_de_id_user(sut=sut, user_token=user_de_id.token, report=report)
+        common_operations.create_and_upload_records_to_dss(sut=sut, user=response_de_id)
+    with (When("send the body to the 'generateReport' api request with the generated deid to generate a uuid")):
+        headers = common_operations.generate_broker_service_headers("application/json", "BASE64", "ZIP", sut,user_de_id)
+        body = get_body_template(start_day=0, end_day=7)
+        report_id = common_operations.get_report_id(body=body, headers=headers, sut=sut)
+    with When("send a request order to generate a json report without the api-key"):
+        # add_error=True to create invalid body to get status code 403
+        headers = common_operations.generate_broker_service_headers("application/json", "BASE64", "ZIP", sut,user_de_id,add_error=True)
+        response = sut.broker.get_report_endpoints(headers=headers, uuid=report_id, report_format="Json")
+        report.debug(response)
+    with Then("verify status code 403 and message 'Forbidden' appears in the response"):
+        assert_response_text(403, response.status_code), f"Test was failed status code is:{response.status_code}"
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.negative
+@pytest.mark.broker_service
+@pytest.mark.todo
+@pytest.mark.xrayjira('COM-4072')
+def skip_test_get_report_json_format_generated_without_deid_(sut, user_de_id, report):
+    """
+
+    :param sut:for using all configurations and base definitions
+    :param user:user id for upload data to dss
+    """
+    with Given("generate data for user"):
+        common_operations.create_and_upload_records_to_dss(sut=sut, user=user_de_id)
+        headers = common_operations.generate_broker_service_headers("application/json", "BASE64", "ZIP", sut, user_de_id)
+        body = get_body_template(start_day=0, end_day=7)
+
+    with When("sending the body to the 'generatereport' api request with the generated deid to generate a uuid"):
+        report_id = common_operations.get_report_id(body=body, headers=headers, sut=sut)
+
+    with Then("verify that the generated json report does not include data for the generated userid"):
+        response = sut.broker.get_report_endpoints(headers=headers, uuid=report_id, report_format="Json")
+        report.debug(response.json())
+        assert_response_text(200, response.status_code), f"Test was failed status code is:{response.status_code}"
