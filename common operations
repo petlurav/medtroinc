@@ -37,7 +37,7 @@ def generate_de_id_user(sut, report, user_token):
     return user_id
 
 
-def generate_broker_service_headers(content_type, encoding, compression, sut, user_de_id):
+def generate_broker_service_headers(content_type, encoding, compression, sut, user_de_id,add_error=False):
     """
     Create headers for request
     :param content_type: content type of the request
@@ -47,9 +47,15 @@ def generate_broker_service_headers(content_type, encoding, compression, sut, us
     :param user_de_id: user deid for upload data to dss
     :return: headers
     """
+     x_api_key = sut.broker.api_key
+    # invalid api key for negative tests (if add_error is True)
+    if add_error:
+        x_api_key = "wrong_api_key"
+
+
     return {
         'Accept': "application/json",
-        'x-api-key': sut.broker.api_key,
+        'x-api-key':  x_api_key,
         'ContentType': content_type,
         'Encoding': encoding,
         'Authorization': f"Bearer {user_de_id.token}",
