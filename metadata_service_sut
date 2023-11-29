@@ -1,0 +1,11 @@
+from infra.component.component import Component
+import tests.conf as conf
+
+
+class MetadataServiceSut(Component):
+
+    def __init__(self):
+        super().__init__()
+        self.dss = conf.dss
+        self.metadata = conf.metadata_service
+        self.auth = conf.auth_serv
