@@ -9,77 +9,162 @@ from datetime import datetime, timedelta
 @pytest.mark.daily
 @pytest.mark.deployment
 @pytest.mark.dss
-def test_post_metadata_api_without_api_key_status_code_403(sut, user_de_id):
+def test_post_metadata_api_without_api_key_status_code_403(sut, user_de_id,report):
     """
-    Send a request ReportDataTimelinesForCalendar Api without api-key and get status code 403
-    @param sut:for using all configurations and base definitions
-    @param user_de_id:user id for upload data to dss
+    upload data with deid to dss,send a request 'reportdatatimelinesforcalendar' api
+    without api-key and get status code 403 and a response message
+    :param sut:for using all configurations and base definitions
+    :param user_de_id:user deid for upload data to dss
     """
     with Given(f"generate data for user"):
-        num_of_records = 10
-        user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
-        generate_data_dss.test_generete_record(sut, user_deid.json()['nutrino_id'],num_of_records )
+        user_deid = sut.auth.get_auth_authenticate(sut,report, user_de_id.token)
+        common_operations.create_and_upload_records_to_dss
         start_day = datetime.now()
         end_day = datetime.now() + timedelta(7)
 
     headers = {'Accept': "application/json", "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
-    with When("Generate a uuid"):
+    with When("define the 'from' and 'to' dates"):
         body = {"define the start and end dates"
                 "from": start_day.strftime('%Y/%m/%d'),
                 "to": end_day.strftime('%Y/%m/%d')
                 }
-    with When("send a request order to generate an metadata without the api-key"):
+    with and("send a request order to generate an metadata without the api-key"):
         response = sut.reporting.post_report_metadata(json=body, headers=headers)
     with Then("verify status code 403 and message Forbidden appears in the response"):
         assert_response_text(403, response.status_code)
         response_json = response.json()
-        assert "message" in response_json
+        reoirt,debug(response_json)
         assert response_json["message"] == "Forbidden"
 
 
 def test_post_metadata_status_code_422(sut, user_de_id):
     """
-    Send a request to ReportDataTimelinesForCalendar Api with one incorrect field in the body and
-    get status code 422
-    @param sut:for using all configurations and base definitions
-    @param user_de_id:user id for upload data to dss
+    upload data with deid to dss,send a request to 'reportdatatimelinesforcalendar' api
+    with empty body and get status code 422 and a response message
+    :param sut:for using all configurations and base definitions
+    :param user_de_id:user deid for upload data to dss
     """
     with Given(f"generate data for user"):
-        user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
-        generate_data_dss.test_generete_record_for_post_metadata(sut, user_deid.json()['nutrino_id'])
+        user_deid = sut.auth.get_auth_authenticate(sut,report, user_de_id.token)
+        common_operations.create_and_upload_records_to_dss
         body_assert = [ "from", "to"]
         properties = "properties"
-
     api_key = reporting_cc.api_key
     headers = {'Accept': "application/json", 'x-api-key': api_key, "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
     with When("send a request order get user metadate use the request body without the required field"):
-        body = {"patientUsername": user_de_id.username
-                }
+        body = {"patientUsername": user_de_id.username}
     with Then("verify that the status code is 422 and the error message appears with the missing value"):
         response = sut.reporting.post_report_metadata(json=body, headers=headers)
         assert_response_text(422, response.status_code)
         response = response.json()
-        assert "message" in response
-        assert response[
-                   "message"] == f"Payload schema validation failed - data must contain {str(body_assert)} {properties}"
+        report.debug(response)
+        assert response["message"] == f"Payload schema validation failed - data must contain {str(body_assert)} {properties}"
 
 
 def test_get_metadata_api_without_api_key_status_code_403(sut, user_de_id):
-    """
-    Send a request to generate Report Api without api-key and get status code 403
-    @param sut:for using all configurations and base definitions
-    @param user_de_id:user id for upload data to dss
+     upload data with deid to dss,send a request to 'reportdatatimelinesrange' api
+    without api-key and get status code 403 and a response message
+    :param sut:for using all configurations and base definitions
+    :param user_de_id:user deid for upload data to dss
     """
     with Given(f"generate data for user"):
-        num_of_records = 8
-        user_de_id.username = None
-        user_deid = sut.auth.get_auth_authenticate(user_token=user_de_id.token)
-        generate_data_dss.test_generete_record(sut, user_deid.json()['nutrino_id'], num_of_records)
+        user_deid = sut.auth.get_auth_authenticate(sut,report, user_de_id.token)
+        common_operations.create_and_upload_records_to_dss
         headers = {'Accept': "application/json", "ContentType": "application/json","Authorization": f"Bearer {user_de_id.token}"}
     with When("send a request order to generate an metadata dates without the api-key"):
         response = sut.reporting.get_report_metadata(headers=headers)
     with Then("verify status code 403 and message Forbidden appears in the response"):
         assert_response_text(403, response.status_code)
         response_json = response.json()
-        assert "message" in response_json
+        report.debug(response_json)
         assert response_json["message"] == "Forbidden"
+
+
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.negative
+@pytest.mark.metadata_service
+@pytest.mark.todo
+@pytest.mark.xrayjira('COM-6207')
+def test_post_metadata_without_authorization_status_code_401(sut, report, user_de_id):
+    """
+    upload data with deid to dss,send a request to 'reportdatatimelinesforcalendar' api
+    without authorization and get status code 401
+    :param sut:for using all configurations and base definitions
+    :param user_de_id:user deid for upload data to dss
+    """
+    with Given(f"generate data for user"):
+
+        user_deid = common_operations.generate_de_id_user(sut,report, user_de_id.token)
+        common_operations.create_and_upload_records_to_dss(sut, user_deid)
+        start_day = datetime.now()
+        end_day = datetime.now() + timedelta(5)
+
+    headers = {'Accept': "application/json", 'x-api-key': sut.metadata.api_key, "ContentType": "application/json"}
+    with When("define the 'from' and 'to' dates"):
+        body = {
+            "from": start_day.strftime('%Y-%m-%d'),
+            "to": end_day.strftime('%Y-%m-%d')
+        }
+    with Then("verify that the response returns status code 401"):
+        response = sut.metadata.post_report_metadata(json=body, headers=headers)
+        assert_response_text(401, response.status_code)
+        report.debug(response.status_code)
+
+
+
+
+
+def generate_expected_segments(days: int) -> [dict[str]]:
+    """
+    this function counts the data segment between the requested start and end date.
+    :param days: It's the maximum 'end' date the request should take when bringing the dates that have a data
+    """
+
+    segments = []
+    for day in range(0, days, 2):
+        start_day = datetime.now() + timedelta(day)
+        end_day = datetime.now() + timedelta(day)
+        segment = {
+            "start": start_day.strftime('%Y-%m-%d'),
+            "end": end_day.strftime('%Y-%m-%d')
+        }
+        segments.append(segment)
+
+    return segments
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.negative
+@pytest.mark.metadata_service
+@pytest.mark.todo
+@pytest.mark.xrayjira('COM-6208')
+def test_to_date_earlier_than_from_date(sut, report, user_de_id):
+    """
+    upload data with deid to dss,send a request to 'reportdatatimelinesforcalendar' api
+    with the 'to' date is earlier than the 'from' date.
+    :param sut:for using all configurations and base definitions
+    :param user_de_id:user deid for upload data to dss
+    """
+    with Given(f"generate data for user"):
+
+        user_deid = common_operations.generate_de_id_user(sut,report, user_de_id.token)
+        common_operations.create_and_upload_records_to_dss(sut, user_deid)
+        start_day = datetime.now()
+        days = 6
+        end_day = datetime.now() + timedelta(days - 1)
+
+    headers = {'Accept': "application/json", 'x-api-key': sut.metadata.api_key, "ContentType": "application/json",
+               "Authorization": f"Bearer {user_de_id.token}"}
+    with When("Define the 'to' date earlier than the 'from' date"):
+        body = {
+            "from": end_day.strftime('%Y-%m-%d'),
+            "to": start_day.strftime('%Y-%m-%d')
+        }
+        response = sut.metadata.post_report_metadata(json=body, headers=headers)
+    with Then("verify that the status code 400 and message 'bad request' returns in the response  "):
+        assert_response_text(400, response.status_code)
+        report.debug(response.status_code)
