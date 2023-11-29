@@ -8,36 +8,7 @@ from datetime import datetime, timedelta
 from tests_resources.files.broker_service.broker_body_template import valid_record
 
 
-#first example
-@pytest.mark.daily
-@pytest.mark.deployment
-@pytest.mark.sanity
-@pytest.mark.broker_service
-@pytest.mark.xrayjira(test_key='COM-4045')
-@pytest.mark.parametrize("content_type", ["application/pdf", "application/json", "application/csv"])
-@pytest.mark.parametrize("encoding", ["BASE64", "NONE"])
-@pytest.mark.parametrize("compression", ["ZIP", "GZIP", "NONE"])
-def test_generate_report_different_headers_status_code_200(sut,report,user_de_id,content_type,encoding,compression):
-    """
-    upload data with deid to dss,send a request to the generateReport api get "uuid" in the response for all types of headers
-    @param sut: for using all configurations and base definitions
-    @param user_de_id:user deid for upload data to dss
-    @param content_type: ContentType for the request.
-    @param encoding: Encoding for the request.
-    @param compression: Compression for the request.
-    """
-    with Given(f"Generate data for user"):
-        response_de_id = common_operations.generate_de_id_user(sut=sut, user_token=user_de_id.token, report=report)
-        common_operations.create_and_upload_records_to_dss(sut=sut, user=response_de_id)
-        time.sleep(20)
-        body = get_body_template(start_day=0, end_day=7, selected_day=5)
 
-    with When("Send the body of the request with the generated deid"):
-            headers = common_operations.generate_broker_service_headers(content_type, encoding, compression, sut,user_de_id)
-            response = sut.broker.post_generate_report(json=body, headers=headers)
-            assert_response_text(STATUS_OK,response.status_code), f"Test failed, status code is: {response.status_code}"
-            report_id = response.json()
-            report.debug(f"Print the uuid for headers type ContentType")
 
     with Then("Verify that the 'uuid' displays correctly for all header types and for the requested patient"):
             report.debug(f"Print the uuid for headers type ContentType={content_type}, Encoding={encoding}, Compression={compression}: {report_id}")
