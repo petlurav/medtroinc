@@ -1,0 +1,158 @@
+import random
+import time
+import pytest
+from infra.steps.steps import When, Then, Given
+from infra.utils.assert_functions import assert_response_text
+from tests.broker_and_metadata_service import common_operations
+from datetime import datetime, timedelta
+from tests.broker_and_metadata_service.common_operations import STATUS_NO_CONTENT, STATUS_OK
+from tests.broker_and_metadata_service.metadata_body_template import get_body_template, get_expected_segments, \
+    get_expected_response
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.sanity
+@pytest.mark.metadata_service
+@pytest.mark.xrayjira(test_key='COM-6218')
+def test_post_metadata_status_code_204(sut, user, report, user_de_id):
+    """
+    upload data with userid to dss,send a request to the "reportdatatimelinesforcalendar" api
+    with the record that was uploaded with the “userid” to dss and get status code 204
+    @param sut:for using all configurations and base definitions
+    @param user:user id for upload data to dss
+    """
+    with Given("use userid to upload data to dss"):
+        days = random.randint(1, 30)
+        # days +1 because the last day is not included in the range
+        common_operations.create_and_upload_records_to_dss(sut, user.username, days + 1)
+        headers = common_operations.generate_metadata_service_headers("application/json", "BASE64", sut, user_de_id)
+    with When("define the 'from' and 'to' date"):
+        body = get_body_template(0, 5)
+        response = sut.metadata.post_report_metadata(json=body, headers=headers)
+        report.debug(response)
+    with (Then("verify the response return status code 204")):
+        assert_response_text(STATUS_NO_CONTENT, response.status_code),
+        f"response from post 'reportdatatimelinesforcalendar' api not as expected{response.status_code}"
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.sanity
+@pytest.mark.metadata_service
+@pytest.mark.xrayjira(test_key='COM-6370')
+def test_get_metadata_status_code_204(sut, user, report, user_de_id):
+
+    """
+    upload data with userid to dss,send a request to the "reportdatatimelinesrange" api
+    with the record that was uploaded with the “userid” to dss and get status code 204
+    @param sut:for using all configurations and base definitions
+    @param user:user id for upload data to dss
+    """
+
+    with Given("generate data for user - header"):
+        headers = common_operations.generate_metadata_service_headers("application/json", "BASE64", sut, user_de_id)
+    with When("send a request to 'reportdatatimelinesrange' api "):
+        response = sut.metadata.get_report_metadata(headers=headers)
+        report.debug(response)
+    with Then("verify the response return status code 204 because the user has no data"):
+        assert_response_text(STATUS_NO_CONTENT, response.status_code)
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.sanity
+@pytest.mark.metadata_service
+@pytest.mark.xrayjira(test_key='COM-6202')
+def test_post_metadata_status_code_200(sut, report, user_de_id):
+    """
+    upload data with deid to dss, send a request to 'reportdatatimelinesforcalendar' api
+    and get a number of segments, device model,
+    and source category with data between the requested ‘from’ and ‘to’ date
+    @param sut:for using all configurations and base definitions
+    @param user_de_id:user deid for upload data to dss
+    """
+    with Given(f"generate data for user"):
+        response_de_id = common_operations.generate_de_id_user(sut=sut, user_token=user_de_id.token, report=report)
+        days = 3
+        common_operations.create_and_upload_records_to_dss(sut, response_de_id, days + 1)
+        headers = common_operations.generate_metadata_service_headers("application/json", "BASE64", sut, user_de_id)
+    with When("define the 'from' and 'to' date"):
+        body = get_body_template(0, days)
+    with When("use'generate_expected_segments'function for count the segments and define the relevant category send "
+              "the request to generate a segment count"):
+        expected_result = {
+            "dataProvider": [
+                {
+                    "segments": get_expected_segments(days),
+                    "category": "PUMP",
+                    "deviceModel": "UNKNOWN"
+                }
+            ]
+        }
+        time.sleep(10)
+        response = sut.metadata.post_report_metadata(json=body, headers=headers)
+    with Then("verify that the data appears as the date segments between the defined 'from'' and 'to' date with the ""correct category and deveModel"):
+        assert_response_text(200,response.status_code), f"response from post 'reportdatatimelinesforcalendar' api not as expected{response.status_code}"
+        actual_result = response.json()
+        report.debug(expected_result)
+        report.debug(actual_result)
+        assert expected_result["dataProvider"] == actual_result["dataProvider"], f"Expected status {expected_result}, Got{actual_result}"
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.sanity
+@pytest.mark.metadata_service
+@pytest.mark.xrayjira(test_key='COM-6243')
+def test_get_metadata_with_block_date_status_code_200(sut, report, user_de_id):
+    """
+    upload data with deid to dss,send a request to 'reportdatatimelinesrange' api and get the start and end dates
+    that the user has data for.
+     use the block day to define the end date
+    @param sut:for using all configurations and base definitions
+    @param user_de_id:user deid for upload data to dss
+    """
+    with Given(f"generate data for user"):
+        block_day = 4
+        response_de_id = common_operations.generate_de_id_user(sut=sut, user_token=user_de_id.token, report=report)
+        common_operations.create_and_upload_records_to_dss(sut, response_de_id, block_day + 1)
+        headers = common_operations.generate_metadata_service_headers("application/json", "BASE64", sut, user_de_id)
+    with When("define the start and end dates and send the request order to generate a date with a defined block day"):
+        expected_result = get_expected_response(block_day)
+        response = sut.metadata.get_report_metadata_with_block_day(headers=headers, block_day=block_day)
+    with Then("verify that the start and end date appear until the defined block date "):
+        assert_response_text(STATUS_OK, response.status_code), f"response from get 'reportdatatimelinesrange' api not as expected{response.status_code}"
+        actual_result = response.json()
+        report.debug(expected_result)
+        report.debug(actual_result)
+        assert actual_result == expected_result, f"Expected status {expected_result}, Got{actual_result}"
+
+
+@pytest.mark.daily
+@pytest.mark.deployment
+@pytest.mark.sanity
+@pytest.mark.metadata_service
+@pytest.mark.xrayjira(test_key='COM-6199')
+def test_get_metadata_without_block_date_status_code_200(sut, report, user_de_id):
+    """
+    upload data with deid to dss,send a request to 'reportdatatimelinesrange' api and get the start and end dates
+    that the user has data for.
+    @param sut:for using all configurations and base definitions
+    @param user_de_id:user deid for upload data to dss
+    """
+    with (Given(f"generate data for user")):
+        response_de_id = common_operations.generate_de_id_user(sut=sut, user_token=user_de_id.token, report=report)
+        days = random.randint(1, 30)
+        # days +1 because the last day is not included in the range
+        common_operations.create_and_upload_records_to_dss(sut, response_de_id, days + 1)
+        time.sleep(5)
+        headers = common_operations.generate_metadata_service_headers("application/json", "BASE64", sut, user_de_id)
+    with Then("set the start and end dates and send a request"):
+        expected_result = get_expected_response(days)
+        response = sut.metadata.get_report_metadata(headers=headers)
+    with Then("verify that the start and end date are displayed for the date range with  data for the requested patient"):
+        assert_response_text(STATUS_OK,response.status_code), f"response from get 'reportdatatimelinesrange' api not as expected{response.status_code}"
+        actual_result = response.json()
+        report.debug(actual_result)
+        assert actual_result == expected_result, f"Expected status {expected_result}, Got{actual_result}"
