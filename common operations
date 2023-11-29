@@ -106,6 +106,8 @@ def create_and_upload_records_to_dss(sut, user):
     for i in range(num_of_records):
         selected_day = datetime.now() + timedelta(days=i)
         time_epoch = int(selected_day.timestamp() * 1000)
+         # 2023-11-25T11:05:50.688Z this how should be the time format
+        #time_format = selected_day.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + 'Z'
         time_format = selected_day.isoformat() + "+00:00"
         therapyTime = selected_day.isoformat() + "+00:00"
 
