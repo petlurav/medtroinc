@@ -9,7 +9,7 @@ from tests.broker_and_metadata_service.reports_broker_service.broker_service_sut
 @pytest.fixture(scope="package")
 def sut():
     """
-       Initialize the BROKER SUT
+       Initialize the BROKER/METADATA SUT
        :return:
        """
     sut = BrokerServiceSut()
@@ -17,10 +17,15 @@ def sut():
     yield sut
     sut.close()
 
+    sut = MetadataServiceSut()
+    sut.init()
+    yield sut
+    sut.close()
+
 
 @pytest.fixture(scope="function")
 def user(sut):
-    user = UserCreator(f"test_broker_service_create_user_{int(time.time())}")
+    user = UserCreator(f"test_broker/metadata_service_create_user_{int(time.time())}")
     user.create()
     ReportManager().info(f"username {user.username} created")
     yield user
@@ -29,7 +34,7 @@ def user(sut):
 
 @pytest.fixture(scope="function")
 def user_de_id(sut):
-    user = UserCreator(f"test_broker_service_create_deid_{int(time.time())}")
+    user = UserCreator(f"test_broker/metadata_service_create_deid_{int(time.time())}")
     user.create(de_id_client_id=True)
     ReportManager().info(f"username {user.username} created")
     yield user
