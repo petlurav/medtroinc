@@ -1,0 +1,424 @@
+import json
+import os
+import uuid
+import pytz
+import time as time_time
+from datetime import datetime, timedelta, time, timezone
+import boto3
+
+
+def enter_data_in_dss_for_user(sut, report, input_data, user_id, num_of_days=30, custom_start_time=None, no_gap=False,
+                               is_gap=False,
+                               device_name=None, is_for_deletion=False, is_load_test=None):
+    """
+    Enter glucose data into DSS for specific user, time and device name
+    :param sut: system under test
+    :param input_data: the data to be inserted
+    :param user_id: the id of the user
+    :param num_of_days: number of days of data
+    :param custom_start_time: custom start time of first record of data
+    :param no_gap: no gap in data between two users (next to be inserted)
+    :param is_gap: is there a gap in the data for this specific user
+    :param device_name: the name of the device the user is using
+    :return: time of last record
+    """
+    record_divider = 0
+    MS_IN_FIVE_MIN = 300000
+    midnight = datetime.combine(datetime.today(), time.min)
+    tz = pytz.timezone('UTC')
+    midnight = midnight.astimezone(tz)
+    report.debug(f"timezone is: {str(datetime.now(timezone.utc).astimezone().tzinfo)}")
+    if str(datetime.now(timezone.utc).astimezone().tzinfo) == 'IST':
+        start_time = midnight - timedelta(days=num_of_days) - timedelta(hours=1)
+    elif str(datetime.now(timezone.utc).astimezone().tzinfo) == 'IDT':
+        start_time = midnight - timedelta(days=num_of_days)
+    else:
+        start_time = midnight - timedelta(days=num_of_days) - timedelta(hours=3)
+    start_time_in_epoch = int(start_time.timestamp() + 10800) * 1000
+    report.debug(f"start time in epoch is: {start_time_in_epoch}")
+    exp = {
+        'entries': {}
+    }
+    gap = 0
+    curr_time = 0
+    for record in input_data:
+        # create an artificial gap between two records of glucose
+        if record_divider == 100:
+            if is_gap is True:
+                gap += MS_IN_FIVE_MIN
+            if no_gap is True:
+                gap = -120000
+        if device_name:
+            record['deviceName'] = device_name
+        else:
+            record['deviceName'] = 'MiniMed_670G'
+        if custom_start_time:
+            curr_time = custom_start_time + (MS_IN_FIVE_MIN * record_divider) + gap
+        else:
+            curr_time = start_time_in_epoch + (MS_IN_FIVE_MIN * record_divider) + gap
+        record['origin'] = "automation"
+        record['userId'] = user_id
+        record['timeEpochMs'] = curr_time
+        record['therapyTime'] = datetime.fromtimestamp(int(curr_time / 1000)).isoformat() + "+00:00"
+        record['rawData']['systime_offset'] = curr_time
+        exp['entries'].update({'automation' + str(record_divider): record})
+        record_divider = record_divider + 1
+    if is_load_test:
+        return exp
+    else:
+        sut.dss.create(entries=exp, is_for_deletion=is_for_deletion)
+        return curr_time
+
+
+def send_carelink_data_to_stream(sut, record_or_records, user_id, stream_name):
+    """
+    Send carelink mock data to kinesis stream
+    @param sut: system under test
+    @param record_or_records: the record/s that will be sent to Kinesis stream
+    @param user_id: id of user sent
+    @param stream_name: name of Kinesis stream to send data to
+    """
+    kinesis = sut.kinesis
+    env = os.environ.get('ACTIVE_ENV')
+    if env == 'stg':
+        client = boto3.client('sts')
+        response = client.assume_role(RoleArn=sut.kinesis_stg_arn,
+                                      RoleSessionName='write-kinesis-dev-retina')
+
+        kinesis = boto3.client('kinesis', region_name='us-west-2',
+                               aws_access_key_id=response['Credentials']['AccessKeyId'],
+                               aws_secret_access_key=response['Credentials']['SecretAccessKey'],
+                               aws_session_token=response['Credentials']['SessionToken'],
+                               )
+    if len(record_or_records) >= 400 and isinstance(record_or_records, list):
+        records = [{"Data": json.dumps(record),
+                    "PartitionKey": user_id + str(int(datetime.now().timestamp())) + uuid.uuid4().hex}
+                   for record in record_or_records[:400]]
+        response = kinesis.put_records(Records=records, StreamName=stream_name)
+        assert response.get('FailedRecordCount') == 0, f"failed to enter record to kinesis"
+        send_carelink_data_to_stream(sut=sut, record_or_records=record_or_records[400:], user_id=user_id,
+                                     stream_name=stream_name)
+    elif len(record_or_records) < 400 and isinstance(record_or_records, list):
+        records = [{"Data": json.dumps(record),
+                    "PartitionKey": user_id + str(int(datetime.now().timestamp())) + uuid.uuid4().hex[:-4]}
+                   for record in record_or_records]
+        response = kinesis.put_records(Records=records, StreamName=stream_name)
+        assert response.get('FailedRecordCount') == 0, f"failed to enter record to kinesis"
+    else:
+        records = [
+            {"Data": json.dumps(record_or_records),
+             "PartitionKey": user_id + str(int(datetime.now().timestamp())) + uuid.uuid4().hex[:-4]
+             }]
+        response = kinesis.put_records(Records=records, StreamName=stream_name)
+        assert response.get('FailedRecordCount') == 0, f"failed to enter record to kinesis"
+
+
+def verify_number_of_records_in_dss(sut, report, clinic_id):
+    clinic_users = json.loads(sut.clinic_agg.get_users_for_clinic(clinic_id=clinic_id, report=report).text)
+    if len(clinic_users) == 0:
+        report.debug(f"no users found for this clinic during verification phase")
+        return
+    else:
+        for user_id in clinic_users:
+            report.debug(f"getting number of records for user {user_id}")
+            response = json.loads(sut.dss.scan(body={
+                'userId': user_id,
+                'entryType': 'GLUCOSE'
+            }, projection='eid', all_records=True).text).get('data')
+            report.debug(f"for user {user_id} there are {len(response)} records")
+
+
+def assert_fields_in_clinic(sut, report, expected_fields, clinic_id, device_name,
+                            last_data):
+    """
+    assert between all fields expected to the actual fields in response
+    :param device_name:
+    :param clinic_id:
+    :param report:
+    :param sut: system under test
+    :param expected_fields: expected fields
+    :return: true if all fields are equal, none otherwise
+    """
+    data = json.loads(sut.fs.get_glucose_stats_data_from_fs_for_clinic_agg(user_or_clinic_id=clinic_id,
+                                                                           device_name=device_name,
+                                                                           num_of_days=30,
+                                                                           report=report).text)
+    if last_data is None or last_data != data:
+        last_data = data
+    if len(data) == 0:
+        return [False], last_data
+    actual_values = json.loads(data['values'][f'0074_v1_{clinic_id}_{device_name}_stats_30'])
+    res = all(expected_fields[field] == actual_values[field] for field in expected_fields)
+    if res is not True:
+        report.debug(f"expected {expected_fields} but got {actual_values}")
+    return [res], last_data
+
+
+def assert_fields_in_clinic_90_days(sut, report, expected_fields, clinic_id, device_name,
+                                    last_data):
+    """
+    assert between all fields expected to the actual fields in response
+    :param device_name:
+    :param clinic_id:
+    :param report:
+    :param sut: system under test
+    :param expected_fields: expected fields
+    :return: true if all fields are equal, none otherwise
+    """
+    res_array = []
+    for num_of_days in [30, 60, 90]:
+        data = json.loads(sut.fs.get_glucose_stats_data_from_fs_for_clinic_agg(user_or_clinic_id=clinic_id,
+                                                                               device_name=device_name,
+                                                                               num_of_days=num_of_days,
+                                                                               report=report).text)
+        if last_data is None or last_data != data:
+            last_data = data
+        if len(data) == 0:
+            return [False], last_data
+        actual_values = json.loads(data['values'][f'0074_v1_{clinic_id}_{device_name}_stats_{num_of_days}'])
+        try:
+            res = all(expected_fields[num_of_days][field] == actual_values[field] for field in
+                      expected_fields[num_of_days])
+            res_array.append(res)
+            if res is not True:
+                report.debug(f"expected {expected_fields} but got {actual_values}")
+        except KeyError as e:
+            report.debug(f"key error: {e}")
+    return res_array, last_data
+
+
+def verify_all_fields_in_clinic(sut, report, device_name, expected_fields, clinic_id, timeout=960,
+                                is_data_bigger_than_90_days=False):
+    """
+    Verify all fields in clinic are equal using busy-wait function
+    :param sut: system under test
+    :param report: report manager
+    :param device_name: name of the device being used
+    :param expected_fields: expected fields of result
+    :param clinic_id: the id of the clinic
+    :param timeout: time to finish the while loop
+    :param is_data_bigger_than_90_days: is data contains more than 90 days in it
+    :return: True if all fields are equal in the desired time, None otherwise
+    """
+    must_end = time_time.time() + timeout
+    last_data = None
+    while time_time.time() < must_end:
+        if is_data_bigger_than_90_days:
+            result, data = assert_fields_in_clinic_90_days(sut=sut, report=report, expected_fields=expected_fields,
+                                                           clinic_id=clinic_id, device_name=device_name,
+                                                           last_data=last_data)
+            if all(result) is True:
+                if data != last_data:
+                    report.debug(f"last data got was {data}")
+                    report.debug(f"data is now equal to the one expected")
+                return True
+            elif data != last_data:
+                report.debug(f"there has been a change in data. last data is {last_data} and newer data is {data}")
+                last_data = data
+        else:
+            result, data = assert_fields_in_clinic(sut=sut, report=report, expected_fields=expected_fields,
+                                                   clinic_id=clinic_id, device_name=device_name,
+                                                   last_data=last_data)
+            if all(result) is True:
+                report.debug(f"data is now equal to the one expected")
+                return True
+            elif data != last_data:
+                report.debug(f"there has been a change in data. last data is {last_data} and newer data is {data}")
+                last_data = data
+        time_time.sleep(10)
+
+
+
+def verify_all_fields_in_clinic_in_feast(sut, report, device_name, expected_fields, clinic_id, timeout=600,
+                                is_data_bigger_than_90_days=False):
+    """
+    Verify all fields in clinic are equal using busy-wait function
+    :param sut: system under test
+    :param report: report manager
+    :param device_name: name of the device being used
+    :param expected_fields: expected fields of result
+    :param clinic_id: the id of the clinic
+    :param timeout: time to finish the while loop
+    :param is_data_bigger_than_90_days: is data contains more than 90 days in it
+    :return: True if all fields are equal in the desired time, None otherwise
+    """
+    must_end = time_time.time() + timeout
+    last_data = None
+    while time_time.time() < must_end:
+        if is_data_bigger_than_90_days:
+            result, data = assert_fields_in_clinic_90_days(sut=sut, report=report, expected_fields=expected_fields,
+                                                           clinic_id=clinic_id, device_name=device_name,
+                                                           last_data=last_data)
+            if all(result) is True:
+                if data != last_data:
+                    report.debug(f"last data got was {data}")
+                    report.debug(f"data is now equal to the one expected")
+                return True
+            elif data != last_data:
+                report.debug(f"there has been a change in data. last data is {last_data} and newer data is {data}")
+                last_data = data
+        else:
+            result, data = assert_fields_in_clinic(sut=sut, report=report, expected_fields=expected_fields,
+                                                   clinic_id=clinic_id, device_name=device_name,
+                                                   last_data=last_data)
+            if all(result) is True:
+                report.debug(f"data is now equal to the one expected")
+                return True
+            elif data != last_data:
+                report.debug(f"there has been a change in data. last data is {last_data} and newer data is {data}")
+                last_data = data
+        time_time.sleep(10)
+
+
+
+
+
+
+
+
+def add_clinic_patient_relation(sut, user_details, clinic_id=None, version=None, is_for_deletion=True):
+    """
+    Add link between clinic and patient
+    :param sut: system under test
+    :param user_details: the details of the user OR users
+    :param clinic_id: the id of the clinic
+    :param version: version of user record
+    :return: response of dynamo request
+    """
+    table_name = sut.clinic_agg.patients_clinic_link_table
+    item = {}
+    new_version = "1"
+    if version:
+        new_version = version
+    for field in user_details:
+        item.update({field: user_details[field]})
+    if clinic_id:
+        item.update({'systemIdDid': {"S": clinic_id},
+                     })
+    response = sut.dynamo.insert_item(
+        table_name=table_name,
+        item=item,
+        version=new_version,
+        is_for_deletion=is_for_deletion
+    )
+    return response
+
+
+def verify_cloudwatch_logs(sut, user_id):
+    """
+    verify user exist in clinic aggregation logs
+    :param user_id: the id of the user to be found
+    :param sut: the system we test using its configurations
+    return: True if expected value found in logs, None otherwise
+    """
+    query = f"fields @timestamp, @message | filter @message not like /(START|REPORT|END)/ | sort @timestamp desc"
+    response = sut.cloudwatch.start_query(
+        logGroupNames=["/aws/lambda/retina-glue-jobs-v1-stg-clinic-patients-mapping",
+                       "/aws/lambda/retina-glue-jobs-v1-stg-glucose-retina-to-dss"],
+        queryString=query,
+        startTime=int((datetime.today() - timedelta(hours=3)).timestamp()),
+        endTime=int((datetime.today() + timedelta(hours=3)).timestamp())
+    )
+    query_id = response.get('queryId')
+    response = None
+    while response is None or response['status'] == 'Running':
+        time_time.sleep(1)
+        response = sut.cloudwatch.get_query_results(
+            queryId=query_id
+        )
+    results = response.get('results')
+    if len(results) > 0:
+        for field in results:
+            if user_id in str(field):
+                return True
+
+
+def wait_until_logs_are_found(sut, user_id, timeout, interval):
+    """
+    Polling implementation function
+    :param sut: the system under test
+    :param user_id: the id of the user to be found
+    :param timeout: the wanted maximum time to wait
+    :param interval: the wanted interval to wait between invocations
+    :return: True if data found in logs in specified time, None otherwise
+    """
+    must_end = time_time.time() + timeout
+    while time_time.time() < must_end:
+        if verify_cloudwatch_logs(sut=sut, user_id=user_id):
+            return True
+        time_time.sleep(interval)
+
+
+def generate_records_for_sns(report, num_of_days, device_name, user_id):
+    """
+    generate messages that match sns schema for clinic agg
+    :param report: report manager
+    :param num_of_days: number of days to generate for
+    :param device_name: name of the device used
+    :param user_id: id of the user
+    :return: list of messages to send to SNS
+    """
+    midnight = datetime.combine(datetime.today(), time.min)
+    start_time = midnight - timedelta(days=num_of_days)
+    epoch_time = int(start_time.timestamp() + 10800) * 1000
+    res = []
+    report.debug(f"start time of test is {start_time} and in epoch is {epoch_time}")
+    for record in range(2880):  # TODO: make number dynamic in the near future
+        message = {
+            'entryAction': 'insert',
+            'eid': f'automation_test_{uuid.uuid4().hex[-12:]}',
+            'timeEpochMs': epoch_time,
+            'userId': user_id,
+            'entryType': 'GLUCOSE',
+            'informer': 'CARELINK',
+            'origin': 'PUMP',
+            'activityTimestamp': datetime.fromtimestamp(int(epoch_time / 1000)).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'therapyTime': datetime.fromtimestamp(int(epoch_time / 1000)).isoformat(),
+            'tzName': 'Asia/Jerusalem',
+            'deviceName': device_name,
+            'itemData': [{'glucoseAmount': 100}],  # mg/dL
+            'dataVersion': '2.0',
+            'rawData': {'systime_rtc': 0, 'systime_offset': epoch_time,
+                        'device_name': device_name}
+        }
+        res.append(message)
+        epoch_time += 300000
+    return res
+
+
+def verify_all_fields_in_clinic_redshift(data, expected_fields):
+    """
+    verify redshift data for clinic
+    :param data: data from redshift
+    :param expected_fields: expected fields to verify
+    :return: True if verification was successful, false otherwise
+    """
+    res = []
+    for record in data:
+        res.append(all(expected_fields[field] == record[field] for field in expected_fields))
+    return all(res)
+
+
+def generate_payload(clinic_id, device_name="MiniMed_670G"):
+    payload = {
+        "featureService": "clinic_device_history_aggregation",
+        "entities": {
+            "clinic_id": [
+                clinic_id,
+                clinic_id,
+                clinic_id
+            ],
+            "device_name": [
+                device_name,
+                device_name,
+                device_name
+            ],
+            "history_days": [
+                30,
+                60,
+                90
+            ],
+
+        }
+    }
+    return payload
