@@ -1,0 +1,24 @@
+import os
+
+from infra.component.component import Component
+import tests.conf as conf
+
+
+class ClinicAggSut(Component):
+
+    def __init__(self):
+        super().__init__()
+        self.clinic_agg = conf.clinic_agg
+        self.dynamo = conf.dynamo
+        self.dss = conf.dss
+        self.fs = conf.fs
+        self.kinesis = conf.kinesis
+        self.sns = conf.sns
+        self.cloudwatch = conf.cloudwatch
+        self.clinic_agg.kinesis_stream_patient_clinic_link = conf.clinic_agg.kinesis_stream_patient_clinic_link
+        self.clinic_agg.patients_clinic_link_table = conf.clinic_agg.patients_clinic_link_table
+        if os.environ.get('ACTIVE_ENV') == 'stg':
+            self.kinesis_stg_arn = conf.kinesis.stg_arn
+        self.redshift = conf.redshift
+        self.redshift.secret = conf.feast.offline_store_config
+        self.airflow = conf.airflow
