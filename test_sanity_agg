@@ -1,0 +1,744 @@
+import json
+import time
+import uuid
+import pytest
+from infra.steps.steps import Given, When, Then
+import tests.clinic_agg.common_operations as common
+from tests_resources.files.clinic_agg.EMEA_147 import results_emea_147, data_uu001__d10_s288_g_val50_emea_147, \
+    data_uu002__d10_s288_g_val48_emea_147
+from tests_resources.files.clinic_agg.EMEA_120 import data_uuser1__d10_s288_g_val60_emea_120, \
+    data_uuser2__d10_s288_g_val55_emea_120, \
+    results_emea_120
+from tests_resources.files.clinic_agg.EMEA_123 import data_uem123_user1__d30_s288_g_val300_200_100, \
+    data_uem123_user2__d30_s288_g_val300_200_100, results_emea_123
+from tests_resources.files.clinic_agg.default_user import generate_user, generate_rds_patient_record
+from tests.clinic_agg.common_operations import enter_data_in_dss_for_user, verify_all_fields_in_clinic
+from tests_resources.files.clinic_agg.EMEA_190 import results_partial, \
+    data_umulti_event_normal_d10_s288_l10_el10_h10_eh10, \
+    data_umulti_event_low_d10_s288_l0_el0_h10_eh20, data_umulti_event_high_d10_s288_l10_el20_h0_eh0
+from tests_resources.files.clinic_agg.EMEA_149 import data_uuser1__d10_s288_g_val100_emea_149, \
+    data_uuser2__d10_s288_g_val180_emea_149, results_emea_149
+from tests_resources.files.clinic_agg.EMEA_127 import data_u__d10_s288_adjanct_events1_EMEA_127, EMEA_127_results
+from tests_resources.files.clinic_agg.EMEA_132 import data_uuser200__d10_s288_g_val200_emea_132, results_emea_132
+from tests_resources.files.clinic_agg.EMEA_136 import data_uuser100__d10_s288_g_val100_emea_136, results_emea_136
+from tests_resources.files.clinic_agg.EMEA_142 import data_uuser19_d10_s288_l0_el19_h0_eh0_emea_142, results_emea_142
+from tests_resources.files.clinic_agg.EMEA_129 import data_u_1__d10_s288_g_val300_emea_129, \
+    data_u_2__d10_s288_g_val270_emea_129, results_emea_129
+from tests_resources.files.clinic_agg.EMEA_195 import data_u_1_d10_s288_l20_el0_h0_eh0_emea_195, \
+    data_u_2_d10_s288_l10_el0_h0_eh0_emea_195, results_emea_195
+from tests_resources.files.clinic_agg.ninety_days import days_results_EMEA, data_EMEA_90days2
+from tests_resources.files.clinic_agg.hundred_days import data_EMEA_100days_from_the_other_side
+from tests_resources.files.clinic_agg.EMEA_140 import data_uEMEA_140__d10_s288_adjanct_events3, EMEA_140_results
+from tests_resources.files.clinic_agg.EMEA_124 import results_emea_124
+from tests_resources.files.clinic_agg.EMEA_139 import results_emea_139
+
+DEVICE_NAME = 'MiniMed_670G'
+
+
+@pytest.mark.formal
+@pytest.mark.group1
+@pytest.mark.sanity
+@pytest.mark.we_partner
+@pytest.mark.xrayjira(test_key="CAD-120")
+@pytest.mark.xrayjira(test_key="CAD-137")
+@pytest.mark.xrayjira(test_key="CAD-143")
+def test_100_percent_low_tir(sut, report):
+    """
+    Verify the extractor calculates partial % of time spent by patients in the low TIR correctly
+    @param sut: the system under test
+    @param report: the reporter
+    """
+    with Given(f"generate clinic id and link users to the clinic"):
+        user_ids = [f'automation_test_{uuid.uuid4().hex[-10:]}', f'automation_test_{uuid.uuid4().hex[-10:]}']
+        report.debug(user_ids)
+        users = [generate_user(specific_id=user_ids[0]), generate_user(specific_id=user_ids[1])]
+        report.debug(users)
+        clinic_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        report.debug(f"creating user links for clinic {clinic_id}")
+        for user in users:
+             common.add_clinic_patient_relation(sut=sut, user_details=user, clinic_id=clinic_id)
+        for user_id in user_ids:
+            rds_record = generate_rds_patient_record(specific_patient_id=user_id, specific_clinic_id=clinic_id)
+            sut.clinic_agg.add_clinic_patient_relation(rds_record)
+        input_data_user_1 = data_uuser1__d10_s288_g_val60_emea_120.records
+        input_data_user_2 = data_uuser2__d10_s288_g_val55_emea_120.records
+    with When(f"send to DSS data of glucose"):
+        enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user_1,
+                                       user_id=users[0]['patientIdDid']['S'])
+        enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user_2,
+                                   user_id=users[1]['patientIdDid']['S'])
+        sut.airflow.dag_action(dag_name='precalculate_test_wepa', action='trigger')
+    with Then(f"verify all data (including GMI mmol) is found and processed correctly"):
+            assert verify_all_fields_in_clinic(sut=sut, report=report, device_name=DEVICE_NAME,
+                                               expected_fields=results_emea_120.result,
+                                               clinic_id=clinic_id), f"data was not as expected"
+    response = sut.feast.get_online_features_from_api(common.generate_payload(clinic_id=clinic_id))
+    report.debug(f'response from feast {response.json()}')
+    # assert common.verify_all_fields_in_clinic_in_feast(sut=sut, report=report, device_name=DEVICE_NAME,
+    #                                    expected_fields=results_emea_149.result,
+    #                                    clinic_id=clinic_id)
+
+
+
+@pytest.mark.formal
+@pytest.mark.group1
+@pytest.mark.sanity
+@pytest.mark.we_partner
+@pytest.mark.xrayjira(test_key="CAD-123")
+def test_average_gmi_percent(sut, report):
+    """
+    Verify the extractor calculates the patients' average estimated GMI % correctly
+    @param sut: the system under test
+    @param report: the reporter
+    """
+    with Given(f"generate clinic id and link users to the clinic"):
+        user_ids = [f'automation_test_{uuid.uuid4().hex[-10:]}', f'automation_test_{uuid.uuid4().hex[-10:]}']
+        users = [generate_user(specific_id=user_ids[0]), generate_user(specific_id=user_ids[1])]
+        report.debug(f"created users {users[0]['patientIdDid']['S'], users[1]['patientIdDid']['S']}")
+        clinic_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        for user in users:
+            common.add_clinic_patient_relation(sut=sut, user_details=user, clinic_id=clinic_id)
+        for user_id in user_ids:
+            rds_record = generate_rds_patient_record(specific_patient_id=user_id, specific_clinic_id=clinic_id)
+        sut.clinic_agg.add_clinic_patient_relation(rds_record)
+        input_data_user_1 = data_uem123_user1__d30_s288_g_val300_200_100.records
+        input_data_user_2 = data_uem123_user2__d30_s288_g_val300_200_100.records
+        with When(f"send to DSS data of glucose"):
+            enter_data_in_dss_for_user(sut=sut, report=report,
+                                       input_data=input_data_user_1,
+                                       user_id=users[0]['patientIdDid']['S'])
+        enter_data_in_dss_for_user(sut=sut, report=report,
+                                   input_data=input_data_user_2,
+                                   user_id=users[1]['patientIdDid']['S'])
+        sut.airflow.dag_action(dag_name='precalculate_test_wepa', action='trigger')
+        with Then(f"verify all data is found and processed correctly"):
+            assert verify_all_fields_in_clinic(sut=sut, report=report, device_name=DEVICE_NAME,
+                                               expected_fields=results_emea_123.result,
+                                               clinic_id=clinic_id), f"data was not as expected"
+            response = sut.feast.get_online_features_from_api(common.generate_payload(clinic_id=clinic_id))
+            report.debug(f'response from feast {response.json()}')
+            # assert common.verify_all_fields_in_clinic_in_feast(sut=sut, report=report, device_name=DEVICE_NAME,
+            #                                    expected_fields=results_emea_149.result,
+            #                                    clinic_id=clinic_id)
+
+
+
+@ pytest.mark.formal
+@ pytest.mark.group1
+@ pytest.mark.sanity
+@ pytest.mark.we_partner
+@ pytest.mark.xrayjira(test_key="CAD-124")
+
+def test_hypo_with_gap(sut, report):
+    """
+    Verify the patient hypoglycemic episode is defined correctly in the system, as
+    consecutive sensor glucose readings mean the gap between SG records shall be less than 10 minutes.
+    @param sut: the system under test
+    @param report: the reporter
+    """
+    with Given(f"generate clinic id and link users to the clinic"):
+        user_ids = [f'automation_test_{uuid.uuid4().hex[-10:]}', f'automation_test_{uuid.uuid4().hex[-10:]}']
+        users = [generate_user(specific_id=user_ids[0]), generate_user(specific_id=user_ids[1])]
+        report.debug(f"created users {users[0]['patientIdDid']['S'], users[1]['patientIdDid']['S']}")
+        clinic_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        for user in users:
+            common.add_clinic_patient_relation(sut=sut, user_details=user, clinic_id=clinic_id)
+        for user_id in user_ids:
+            rds_record = generate_rds_patient_record(specific_patient_id=user_id, specific_clinic_id=clinic_id)
+            sut.clinic_agg.add_clinic_patient_relation(rds_record)
+        input_data_user_1 = data_uuser1__d10_s288_g_val60_emea_120.records
+        input_data_user_2 = data_uuser2__d10_s288_g_val55_emea_120.records
+    with When(f"send to DSS data of glucose"):
+        enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user_1,
+                                   user_id=users[0]['patientIdDid']['S'],
+                                   is_gap=True)
+        enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user_2,
+                                   user_id=users[1]['patientIdDid']['S'],
+                                   is_gap=True)
+        sut.airflow.dag_action(dag_name='precalculate_test_wepa', action='trigger')
+    with Then(f"verify all data is found and processed correctly"):
+        assert verify_all_fields_in_clinic(sut=sut, report=report, device_name=DEVICE_NAME,
+                                           expected_fields=results_emea_124.result,
+                                           clinic_id=clinic_id), f"data was not as expected"
+        response = sut.feast.get_online_features_from_api(common.generate_payload(clinic_id=clinic_id))
+        report.debug(f'response from feast {response.json()}')
+        # assert common.verify_all_fields_in_clinic_in_feast(sut=sut, report=report, device_name=DEVICE_NAME,
+        #                                    expected_fields=results_emea_149.result,
+        #                                    clinic_id=clinic_id)
+
+
+@pytest.mark.sanity
+@pytest.mark.group1
+@pytest.mark.we_partner
+@pytest.mark.xrayjira(test_key="CAD-127")
+def test_combine_hypoglycemic_episodes(sut, report):
+    """
+    Verify the system combines the hypoglycemic episodes for a patient correctly
+    @param sut: the system under test
+    @param report: the reporter
+    """
+    with Given(f"generate clinic id and link users to the clinic"):
+        user_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        user = generate_user(specific_id=user_id)
+        report.debug(f"created users {user['patientIdDid']['S']}")
+        clinic_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        for user in user:
+            common.add_clinic_patient_relation(sut=sut, user_details=user, clinic_id=clinic_id)
+        for user_id in user_id:
+            rds_record = generate_rds_patient_record(specific_patient_id=user_id, specific_clinic_id=clinic_id)
+            sut.clinic_agg.add_clinic_patient_relation(rds_record)
+        input_data_user = data_u__d10_s288_adjanct_events1_EMEA_127.records
+    with When(f"send to DSS data of glucose"):
+        enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user,
+                                   user_id=user['patientIdDid']['S'])
+        sut.airflow.dag_action(dag_name='precalculate_test_wepa', action='trigger')
+    with Then(f"verify all data is found and processed correctly"):
+        assert verify_all_fields_in_clinic(sut=sut, report=report, device_name=DEVICE_NAME,
+                                           expected_fields=EMEA_127_results.result,
+                                           clinic_id=clinic_id), f"data was not as expected"
+        response = sut.feast.get_online_features_from_api(common.generate_payload(clinic_id=clinic_id))
+        report.debug(f'response from feast {response.json()}')
+    #   assert common.verify_all_fields_in_clinic_in_feast(sut=sut, report=report, device_name=DEVICE_NAME,
+    #                                    expected_fields=results_emea_149.result,
+    #                                    clinic_id=clinic_id)
+
+
+@pytest.mark.formal
+@pytest.mark.group1
+@pytest.mark.sanity
+@pytest.mark.we_partner
+@pytest.mark.xrayjira(test_key="CAD-129")
+def test_100_percent_extreme_high_tir(sut, report):
+    """
+    Verify the extractor calculates partial % of time spent by patients in the extreme high TIR correctly
+    @param sut: the system under test
+    @param report: the reporter
+    """
+    with Given(f"generate clinic id and link users to the clinic"):
+        user_ids = [f'automation_test_{uuid.uuid4().hex[-10:]}', f'automation_test_{uuid.uuid4().hex[-10:]}']
+        users = [generate_user(specific_id=user_ids[0]), generate_user(specific_id=user_ids[1])]
+        clinic_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        report.debug(f"creating user links for clinic {clinic_id}")
+        for user in users:
+            common.add_clinic_patient_relation(sut=sut, user_details=user, clinic_id=clinic_id)
+        for user_id in user_ids:
+            rds_record = generate_rds_patient_record(specific_patient_id=user_id, specific_clinic_id=clinic_id)
+            sut.clinic_agg.add_clinic_patient_relation(rds_record)
+        input_data_user_1 = data_u_1__d10_s288_g_val300_emea_129.records
+        input_data_user_2 = data_u_2__d10_s288_g_val270_emea_129.records
+
+    with When(f"send to DSS data of glucose"):
+            enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user_1,
+                                       user_id=users[0]['patientIdDid']['S'])
+            enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user_2,
+                                       user_id=users[1]['patientIdDid']['S'])
+            sut.airflow.dag_action(dag_name='precalculate_test_wepa', action='trigger')
+    with Then(f"verify all data is found and processed correctly"):
+        assert verify_all_fields_in_clinic(sut=sut, report=report, device_name=DEVICE_NAME,
+                                           expected_fields=results_emea_129.result,
+                                           clinic_id=clinic_id), f"data was not as expected"
+        response = sut.feast.get_online_features_from_api(common.generate_payload(clinic_id=clinic_id))
+        report.debug(f'response from feast {response.json()}')
+        # assert common.verify_all_fields_in_clinic_in_feast(sut=sut, report=report, device_name=DEVICE_NAME,
+        #                                    expected_fields=results_emea_149.result,
+        #                                    clinic_id=clinic_id)
+
+
+@pytest.mark.formal
+@pytest.mark.group1
+@pytest.mark.sanity
+@pytest.mark.we_partner
+@pytest.mark.xrayjira(test_key="CAD-132")
+def test_100_percent_high_tir(sut, report):
+    """
+    Verify the extractor calculates if a patient spent 100% of time in high TIR
+    @param sut: the system under test
+    @param report: the reporter
+    """
+    with Given(f"generate clinic id and link users to the clinic"):
+        user_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        user = generate_user(specific_id=user_id)
+        report.debug(f"created users {user['patientIdDid']['S']}")
+        clinic_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        for user in user:
+            common.add_clinic_patient_relation(sut=sut, user_details=user, clinic_id=clinic_id)
+        for user_id in user_id:
+            rds_record = generate_rds_patient_record(specific_patient_id=user_id, specific_clinic_id=clinic_id)
+            sut.clinic_agg.add_clinic_patient_relation(rds_record)
+        input_data_user = data_uuser200__d10_s288_g_val200_emea_132.records
+    with When(f"send to DSS data of glucose"):
+        enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user,
+                                   user_id=user['patientIdDid']['S'])
+        sut.airflow.dag_action(dag_name='precalculate_test_wepa', action='trigger')
+    with Then(f"verify all data is found and processed correctly"):
+        assert verify_all_fields_in_clinic(sut=sut, report=report, device_name=DEVICE_NAME,
+                                           expected_fields=results_emea_132.result,
+                                           clinic_id=clinic_id), f"data was not as expected"
+        response = sut.feast.get_online_features_from_api(common.generate_payload(clinic_id=clinic_id))
+        report.debug(f'response from feast {response.json()}')
+        # assert common.verify_all_fields_in_clinic_in_feast(sut=sut, report=report, device_name=DEVICE_NAME,
+        #                                    expected_fields=results_emea_149.result,
+        #                                    clinic_id=clinic_id)
+
+
+@pytest.mark.formal
+@pytest.mark.group1
+@pytest.mark.sanity
+@pytest.mark.we_partner
+@pytest.mark.xrayjira(test_key="CAD-136")
+def test_100_percent_normal_tir(sut, report):
+    """
+    Verify the extractor calculates if a patient spent 100% of time in normal TIR
+    @param sut: the system under test
+    @param report: the reporter
+    """
+    with Given(f"generate clinic id and link users to the clinic"):
+        user_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        user = generate_user(specific_id=user_id)
+        report.debug(f"created users {user['patientIdDid']['S']}")
+        clinic_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        for user in user:
+            common.add_clinic_patient_relation(sut=sut, user_details=user, clinic_id=clinic_id)
+        for user_id in user_id:
+            rds_record = generate_rds_patient_record(specific_patient_id=user_id, specific_clinic_id=clinic_id)
+            sut.clinic_agg.add_clinic_patient_relation(rds_record)
+        input_data_user = data_uuser100__d10_s288_g_val100_emea_136.records
+    with When(f"send to DSS data of glucose"):
+        enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user,
+                                   user_id=user['patientIdDid']['S'])
+        sut.airflow.dag_action(dag_name='precalculate_test_wepa', action='trigger')
+    with Then(f"verify all data is found and processed correctly"):
+        assert verify_all_fields_in_clinic(sut=sut, report=report, device_name=DEVICE_NAME,
+                                           expected_fields=results_emea_136.result,
+                                           clinic_id=clinic_id), f"data was not as expected"
+        response = sut.feast.get_online_features_from_api(common.generate_payload(clinic_id=clinic_id))
+        report.debug(f'response from feast {response.json()}')
+        # assert common.verify_all_fields_in_clinic_in_feast(sut=sut, report=report, device_name=DEVICE_NAME,
+        #                                    expected_fields=results_emea_149.result,
+        #                                    clinic_id=clinic_id)
+
+
+@pytest.mark.formal
+@pytest.mark.group1
+@pytest.mark.sanity
+@pytest.mark.we_partner
+@pytest.mark.xrayjira(test_key="CAD-139")
+def test_extreme_hypo_with_gap(sut, report):
+    """
+    Verify the patient extreme hypoglycemic episode is defined correctly in the system, as
+    consecutive sensor glucose readings mean the gap between SG records shall be less than 10 minutes.
+    @param sut: the system under test
+    @param report: the reporter
+    """
+    with Given(f"generate clinic id and link users to the clinic"):
+        user_ids = [f'automation_test_{uuid.uuid4().hex[-10:]}', f'automation_test_{uuid.uuid4().hex[-10:]}']
+        users = [generate_user(specific_id=user_ids[0]), generate_user(specific_id=user_ids[1])]
+        clinic_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        report.debug(f"creating user links for clinic {clinic_id}")
+        for user in users:
+            common.add_clinic_patient_relation(sut=sut, user_details=user, clinic_id=clinic_id)
+        for user_id in user_ids:
+            rds_record = generate_rds_patient_record(specific_patient_id=user_id, specific_clinic_id=clinic_id)
+            sut.clinic_agg.add_clinic_patient_relation(rds_record)
+        input_data_user_1 = data_uu001__d10_s288_g_val50_emea_147.records
+        input_data_user_2 = data_uu002__d10_s288_g_val48_emea_147.records
+    with When(f"send to DSS data of glucose"):
+        enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user_1,
+                                   user_id=users[0]['patientIdDid']['S'],
+                                   is_gap=True)
+        enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user_2,
+                                   user_id=users[1]['patientIdDid']['S'],
+                                   is_gap=True)
+        sut.airflow.dag_action(dag_name='precalculate_test_wepa', action='trigger')
+    with Then(f"verify all data is found and processed correctly"):
+        assert verify_all_fields_in_clinic(sut=sut, report=report, device_name=DEVICE_NAME,
+                                           expected_fields=results_emea_139.result,
+                                           clinic_id=clinic_id), f"data was not as expected"
+        response = sut.feast.get_online_features_from_api(common.generate_payload(clinic_id=clinic_id))
+        report.debug(f'response from feast {response.json()}')
+        # assert common.verify_all_fields_in_clinic_in_feast(sut=sut, report=report, device_name=DEVICE_NAME,
+        #                                    expected_fields=results_emea_149.result,
+        #                                    clinic_id=clinic_id)
+
+
+
+@pytest.mark.formal
+@pytest.mark.group2
+@pytest.mark.sanity
+@pytest.mark.we_partner
+@pytest.mark.xrayjira(test_key="CAD-140")
+def test_combine_extreme_hypo(sut, report):
+    """
+    TBD
+    @param sut: the system under test
+    @param report: the reporter
+    """
+    with Given(f"generate clinic id and link users to the clinic"):
+        user_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        user = generate_user(specific_id=user_id)
+        report.debug(f"created users {user['patientIdDid']['S']}")
+        clinic_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        for user in user:
+            common.add_clinic_patient_relation(sut=sut, user_details=user, clinic_id=clinic_id)
+        for user_id in user_id:
+            rds_record = generate_rds_patient_record(specific_patient_id=user_id, specific_clinic_id=clinic_id)
+            sut.clinic_agg.add_clinic_patient_relation(rds_record)
+        input_data_user = data_uEMEA_140__d10_s288_adjanct_events3.records
+
+    with When(f"send to DSS data of glucose"):
+        enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user,
+                                   user_id=user['patientIdDid']['S'])
+    with Then(f"verify all data is found and processed correctly"):
+        sut.airflow.dag_action(dag_name='precalculate_test_wepa', action='trigger')
+        assert verify_all_fields_in_clinic(sut=sut, report=report, device_name=DEVICE_NAME,
+                                           expected_fields=EMEA_140_results.result,
+                                           clinic_id=clinic_id), f"data was not as expected"
+        response = sut.feast.get_online_features_from_api(common.generate_payload(clinic_id=clinic_id))
+        report.debug(f'response from feast {response.json()}')
+        # assert common.verify_all_fields_in_clinic_in_feast(sut=sut, report=report, device_name=DEVICE_NAME,
+        #                                    expected_fields=results_emea_149.result,
+        #                                    clinic_id=clinic_id)
+
+
+@pytest.mark.formal
+@pytest.mark.group2
+@pytest.mark.sanity
+@pytest.mark.we_partner
+@pytest.mark.xrayjira(test_key="CAD-142")
+def test_average_number_extreme_hypo(sut, report):
+    """
+    verify the extractor calculates the patient average number of extreme hypoglycemic episodes (per day) correctly.
+    @param sut: the system under test
+    @param report: the reporter
+    """
+    with Given(f"generate clinic id and link users to the clinic"):
+        user_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        user = generate_user(specific_id=user_id)
+        report.debug(f"created users {user['patientIdDid']['S']}")
+        clinic_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        for user in user:
+            common.add_clinic_patient_relation(sut=sut, user_details=user, clinic_id=clinic_id)
+        for user_id in user_id:
+            rds_record = generate_rds_patient_record(specific_patient_id=user_id, specific_clinic_id=clinic_id)
+            sut.clinic_agg.add_clinic_patient_relation(rds_record)
+        input_data_user = data_uuser19_d10_s288_l0_el19_h0_eh0_emea_142.records
+    with When(f"send to DSS data of glucose"):
+        enter_data_in_dss_for_user(sut=sut, report=report,
+                                   input_data=input_data_user,
+                                   user_id=user['patientIdDid']['S'])
+        sut.airflow.dag_action(dag_name='precalculate_test_wepa', action='trigger')
+    with Then(f"verify all data is found and processed correctly"):
+        assert verify_all_fields_in_clinic(sut=sut, report=report, device_name=DEVICE_NAME,
+                                           expected_fields=results_emea_142.result,
+                                           clinic_id=clinic_id), f"data was not as expected"
+        response = sut.feast.get_online_features_from_api(common.generate_payload(clinic_id=clinic_id))
+        report.debug(f'response from feast {response.json()}')
+        # assert common.verify_all_fields_in_clinic_in_feast(sut=sut, report=report, device_name=DEVICE_NAME,
+        #                                    expected_fields=results_emea_149.result,
+        #                                    clinic_id=clinic_id)
+
+
+@pytest.mark.formal
+@pytest.mark.group2
+@pytest.mark.sanity
+@pytest.mark.we_partner
+@pytest.mark.xrayjira(test_key="CAD-147")
+def test_100_percent_extreme_low_tir(sut, report):
+    """
+    Verify the extractor calculates if a patient spent 100% of time in extreme low TIR
+    @param sut: the system under test
+    @param report: the reporter
+    """
+    with Given(f"generate clinic id and link users to the clinic"):
+        user_ids = [f'automation_test_{uuid.uuid4().hex[-10:]}', f'automation_test_{uuid.uuid4().hex[-10:]}']
+        users = [generate_user(specific_id=user_ids[0]), generate_user(specific_id=user_ids[1])]
+        clinic_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        report.debug(f"creating user links for clinic {clinic_id}")
+        for user in users:
+            common.add_clinic_patient_relation(sut=sut, user_details=user, clinic_id=clinic_id)
+        for user_id in user_ids:
+            rds_record = generate_rds_patient_record(specific_patient_id=user_id, specific_clinic_id=clinic_id)
+            sut.clinic_agg.add_clinic_patient_relation(rds_record)
+        input_data_user_1 = data_uu001__d10_s288_g_val50_emea_147.records
+        input_data_user_2 = data_uu002__d10_s288_g_val48_emea_147.records
+
+    with When(f"send to DSS data of glucose"):
+        enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user_1,
+                                   user_id=users[0]['patientIdDid']['S'])
+        enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user_2,
+                                   user_id=users[1]['patientIdDid']['S'])
+        sut.airflow.dag_action(dag_name='precalculate_test_wepa', action='trigger')
+    with Then(f"verify all data is found and processed correctly"):
+        assert verify_all_fields_in_clinic(sut=sut, report=report, device_name=DEVICE_NAME,
+                                           expected_fields=results_emea_147.result,
+                                           clinic_id=clinic_id), f"data was not as expected"
+        response = sut.feast.get_online_features_from_api(common.generate_payload(clinic_id=clinic_id))
+        report.debug(f'response from feast {response.json()}')
+        # assert common.verify_all_fields_in_clinic_in_feast(sut=sut, report=report, device_name=DEVICE_NAME,
+        #                                    expected_fields=results_emea_149.result,
+        #                                    clinic_id=clinic_id)
+
+
+@pytest.mark.formal
+@pytest.mark.group2
+@pytest.mark.sanity
+@pytest.mark.we_partner
+@pytest.mark.xrayjira(test_key="CAD-149")
+@pytest.mark.xrayjira(test_key="CAD-150")
+def test_percent_of_patients_in_normal_high_gmi(sut, report):
+    """
+    Verify the extractor calculates percent of patients in normal and high GMI % correctly
+    @param sut: the system under test
+    @param report: the reporter
+    """
+    with Given(f"generate clinic id and link users to the clinic"):
+        user_ids = [f'automation_test_{uuid.uuid4().hex[-10:]}', f'automation_test_{uuid.uuid4().hex[-10:]}']
+        users = [generate_user(specific_id=user_ids[0]), generate_user(specific_id=user_ids[1])]
+        clinic_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        report.debug(f"creating user links for clinic {clinic_id}")
+        for user in users:
+            common.add_clinic_patient_relation(sut=sut, user_details=user, clinic_id=clinic_id)
+        for user_id in user_ids:
+            rds_record = generate_rds_patient_record(specific_patient_id=user_id, specific_clinic_id=clinic_id)
+            sut.clinic_agg.add_clinic_patient_relation(rds_record)
+        input_data_user_1 = data_uuser1__d10_s288_g_val100_emea_149.records
+        input_data_user_2 = data_uuser2__d10_s288_g_val180_emea_149.records
+
+    with When(f"send to DSS data of glucose"):
+        enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user_1,
+                                   user_id=users[0]['patientIdDid']['S'])
+        enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user_2,
+                                   user_id=users[1]['patientIdDid']['S'])
+        sut.airflow.dag_action(dag_name='precalculate_test_wepa', action='trigger')
+    with Then(f"verify all data is found and processed correctly"):
+        assert verify_all_fields_in_clinic(sut=sut, report=report, device_name=DEVICE_NAME,
+                                           expected_fields=results_emea_149.result,
+                                           clinic_id=clinic_id), f"data was not as expected"
+        response = sut.feast.get_online_features_from_api(common.generate_payload(clinic_id=clinic_id))
+        report.debug(f'response from feast {response.json()}')
+        # assert common.verify_all_fields_in_clinic_in_feast(sut=sut, report=report, device_name=DEVICE_NAME,
+        #                                    expected_fields=results_emea_149.result,
+        #                                    clinic_id=clinic_id)
+
+
+@pytest.mark.formal
+@pytest.mark.sanity
+@pytest.mark.group2
+@pytest.mark.we_partner
+@pytest.mark.xrayjira(test_key="CAD-153")
+@pytest.mark.xrayjira(test_key="CAD-190")
+def test_partial_ranges(sut, report):
+    """
+    Verify the extractor calculates the patients' average estimated GMI % correctly
+    @param sut: the system under test
+    @param report: the reporter
+    """
+    with Given(f"generate clinic id and link users to the clinic"):
+        user_ids = [f'automation_test_{uuid.uuid4().hex[-10:]}', f'automation_test_{uuid.uuid4().hex[-10:]}',f'automation_test_{uuid.uuid4().hex[-10:]}']
+        users = [generate_user(specific_id=user_ids[0]), generate_user(specific_id=user_ids[1]),
+                 generate_user(specific_id=user_ids[2])]
+        clinic_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        report.debug(f"creating user links for clinic {clinic_id}")
+        for user in users:
+            common.add_clinic_patient_relation(sut=sut, user_details=user, clinic_id=clinic_id)
+        for user_id in user_ids:
+            rds_record = generate_rds_patient_record(specific_patient_id=user_id, specific_clinic_id=clinic_id)
+            sut.clinic_agg.add_clinic_patient_relation(rds_record)
+        input_data_user_1 = data_umulti_event_normal_d10_s288_l10_el10_h10_eh10.records
+        input_data_user_2 = data_umulti_event_high_d10_s288_l10_el20_h0_eh0.records
+        input_data_user_3 = data_umulti_event_low_d10_s288_l0_el0_h10_eh20.records
+    with When(f"send to DSS data of glucose"):
+        enter_data_in_dss_for_user(sut=sut, report=report,
+                                   input_data=input_data_user_1,
+                                   user_id=users[0]['patientIdDid']['S'])
+        enter_data_in_dss_for_user(sut=sut, report=report,
+                                   input_data=input_data_user_2,
+                                   user_id=users[1]['patientIdDid']['S'])
+        enter_data_in_dss_for_user(sut=sut, report=report,
+                                   input_data=input_data_user_3,
+                                   user_id=users[2]['patientIdDid']['S'])
+        sut.airflow.dag_action(dag_name='precalculate_test_wepa', action='trigger')
+    with Then(f"verify all data is found and processed correctly"):
+        assert verify_all_fields_in_clinic(sut=sut, report=report, device_name=DEVICE_NAME,
+                                           expected_fields=results_partial.result,
+                                           clinic_id=clinic_id), f"data was not as expected"
+        response = sut.feast.get_online_features_from_api(common.generate_payload(clinic_id=clinic_id))
+        report.debug(f'response from feast {response.json()}')
+        # assert common.verify_all_fields_in_clinic_in_feast(sut=sut, report=report, device_name=DEVICE_NAME,
+        #                                    expected_fields=results_emea_149.result,
+        #                                    clinic_id=clinic_id)
+
+
+@pytest.mark.formal
+@pytest.mark.group2
+@pytest.mark.sanity
+@pytest.mark.we_partner
+@pytest.mark.xrayjira(test_key="CAD-195")
+def test_average_number_hypo(sut, report):
+    """
+    verify the extractor calculates patient or number of patients average number of hypoglycemic episodes (per day)
+    correctly.
+    @param sut: the system under test
+    @param report: the reporter
+    """
+    with Given(f"generate clinic id and link users to the clinic"):
+        user_ids = [f'automation_test_{uuid.uuid4().hex[-10:]}', f'automation_test_{uuid.uuid4().hex[-10:]}']
+        users = [generate_user(specific_id=user_ids[0]), generate_user(specific_id=user_ids[1])]
+        clinic_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        report.debug(f"creating user links for clinic {clinic_id}")
+        for user in users:
+            common.add_clinic_patient_relation(sut=sut, user_details=user, clinic_id=clinic_id)
+        for user_id in user_ids:
+            rds_record = generate_rds_patient_record(specific_patient_id=user_id, specific_clinic_id=clinic_id)
+            sut.clinic_agg.add_clinic_patient_relation(rds_record)
+        input_data_user_1 = data_u_1_d10_s288_l20_el0_h0_eh0_emea_195.records
+        input_data_user_2 = data_u_2_d10_s288_l10_el0_h0_eh0_emea_195.records
+    with When(f"send to DSS data of glucose"):
+        enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user_1,
+                                   user_id=users[0]['patientIdDid']['S'])
+        enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user_2,
+                                   user_id=users[1]['patientIdDid']['S'])
+        sut.airflow.dag_action(dag_name='precalculate_test_wepa', action='trigger')
+    with Then(f"verify all data is found and processed correctly"):
+        assert verify_all_fields_in_clinic(sut=sut, report=report, device_name=DEVICE_NAME,
+                                           expected_fields=results_emea_195.result,
+                                           clinic_id=clinic_id), f"data was not as expected"
+        response = sut.feast.get_online_features_from_api(common.generate_payload(clinic_id=clinic_id, num_pation=user_ids))
+        # time.sleep(300)
+        report.debug(f'response from feast {response.json()}')
+        response_json = json.loads(response.text)
+
+        clinic_id_index = response_json["feature_names"].index('clinic_id')
+        actual_clinic_id = response_json['values'][0][clinic_id_index]
+        expected_clinic_id = clinic_id
+        assert actual_clinic_id == expected_clinic_id, "Clinic IDs do not match"
+
+        device_name_index = response_json['feature_names'].index('device_name')
+        actual_device_name = response_json['values'][0][device_name_index]
+        expected_device_name = 'MiniMed_670G'
+        assert actual_device_name == expected_device_name, "Device name do not match"
+
+        patients_num_index = response_json['feature_names'].index('number_of_patients')
+        actual_patients_num = response_json['values'][0][patients_num_index]
+        expected_patients_num = user_ids
+        assert actual_patients_num == expected_patients_num, "Patients number  do not match"
+
+
+
+
+@pytest.mark.formal
+@pytest.mark.group3
+@pytest.mark.sanity
+@pytest.mark.we_partner
+@pytest.mark.xrayjira(test_key="CAD-233")
+def test_data_90_days(sut, report):
+    """
+    verify the extractor calculates the data for 90 days correctly
+    @param sut: the system under test
+    @param report: the reporter
+    """
+    with Given(f"generate clinic id and link a user to the clinic"):
+        user_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        user = generate_user(specific_id=user_id)
+        report.debug(f"created users {user['patientIdDid']['S']}")
+        clinic_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        for user in user:
+            common.add_clinic_patient_relation(sut=sut, user_details=user, clinic_id=clinic_id)
+        for user_id in user_id:
+            rds_record = generate_rds_patient_record(specific_patient_id=user_id, specific_clinic_id=clinic_id)
+            sut.clinic_agg.add_clinic_patient_relation(rds_record)
+        input_data_user = list(reversed(data_EMEA_90days2.records))
+    with When(f"send to DSS data of glucose"):
+        enter_data_in_dss_for_user(sut=sut, report=report, input_data=input_data_user,
+                                   user_id=user['patientIdDid']['S'], num_of_days=90)
+        sut.airflow.dag_action(dag_name='precalculate_test_wepa', action='trigger')
+    with Then(f"verify all data is found and processed correctly"):
+        assert verify_all_fields_in_clinic(sut=sut, report=report, device_name=DEVICE_NAME,
+                                           expected_fields=days_results_EMEA.result, clinic_id=clinic_id,
+                                           is_data_bigger_than_90_days=True), f"data was not as expected"
+        response = sut.feast.get_online_features_from_api(common.generate_payload(clinic_id=clinic_id))
+        report.debug(f'response from feast {response.json()}')
+        response_json = json.loads(response.text)
+
+@pytest.mark.formal
+@pytest.mark.group3
+@pytest.mark.sanity
+@pytest.mark.we_partner
+@pytest.mark.xrayjira(test_key="CAD-234")
+def test_data_above_90_days(sut, report):
+    """
+    verify the extractor calculates the data for more than 90 days correctly
+    @param sut: the system under test
+    @param report: the reporter
+    """
+    with Given(f"generate clinic id and link users to the clinic"):
+        user_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+        user = generate_user(specific_id=user_id)
+        report.debug(f"created users {user['patientIdDid']['S']}")
+        clinic_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+
+        common.add_clinic_patient_relation(sut=sut, user_details=user, clinic_id=clinic_id)
+        rds_record = generate_rds_patient_record(specific_patient_id=user_id, specific_clinic_id=clinic_id)
+        sut.clinic_agg.add_clinic_patient_relation(rds_record)
+        input_data_user_1 = list(reversed(data_EMEA_100days_from_the_other_side.records))
+    with When(f"send to DSS data of glucose"):
+        enter_data_in_dss_for_user(sut=sut, report=report,
+                                   input_data=input_data_user_1,
+                                   user_id=user['patientIdDid']['S'], num_of_days=100)
+        sut.airflow.dag_action(dag_name='precalculate_test_wepa', action='trigger')
+    with Then(f"verify all data is found and processed correctly"):
+        assert verify_all_fields_in_clinic(sut=sut, report=report, device_name=DEVICE_NAME,
+                                           expected_fields=days_results_EMEA.result, clinic_id=clinic_id,
+                                           is_data_bigger_than_90_days=True, timeout=1260), f"data was not as expected"
+        response = sut.feast.get_online_features_from_api(common.generate_payload(clinic_id=clinic_id))
+        report.debug(f'response from feast {response.text}')
+        # assert common.verify_all_fields_in_clinic_in_feast(sut=sut, report=report, device_name=DEVICE_NAME,
+        #                                    expected_fields=results_emea_149.result,
+        #                                    clinic_id=clinic_id)
+
+
+
+
+def test_airflow(sut,report):
+    user_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+    user = generate_user(specific_id=user_id)
+    report.debug(f"created users {user['patientIdDid']['S']}")
+    clinic_id = f'automation_test_{uuid.uuid4().hex[-10:]}'
+    response = sut.feast.get_online_features_from_api(common.generate_payload(clinic_id=clinic_id))
+    report.debug(f'response from feast {response.json()}')
+    response_json = json.loads(response.text)
+    actual_clinic_id = None  # Initialize the variable to None
+    for idx, feature_name in enumerate(response_json['feature_names']):
+        if feature_name == 'clinic_id':
+            # Found the "clinic_id" feature in the feature_names list
+            actual_clinic_id = response_json['values'][0][idx]
+            break  # Break out of the loop once found
+
+    # Now you can assert the actual_clinic_id
+    expected_clinic_id = clinic_id  # Replace with your expected value
+    assert actual_clinic_id == expected_clinic_id, "Clinic IDs do not match"
+    # Define the expected user ID
+    expected_user_id = 'automation_test_0ee5bbb966'  # Replace with your expected value
+
+    # Extract the actual user ID from the response
+    actual_user_id = None
+    for idx, feature_name in enumerate(response_json['feature_names']):
+        if feature_name == 'number_of_patients':
+            actual_user_id = response_json['values'][0][idx]
+            break
+
+    # Now you can assert that the actual user ID matches the expected user ID
+    assert actual_user_id == expected_user_id, "User IDs do not match"
+
+    # expected_device_id = 'device_name'
+    # expected_name = 'MiniMed_670G'
+    # actual_device_id = response_json()['feature_names'][0].get('device_name')
+    # actual_name_id = response_json()['values'].get('MiniMed_670G')
+    # assert expected_device_id == actual_device_id, "Clinic IDs do not match"
+    # assert expected_name == actual_name_id
+
+
+
+    # expected_clinic_id = clinic_id
+    # actual_clinic_id = response_json['feature_names'][0]['clinic_id']
+    # assert expected_clinic_id == actual_clinic_id,"Clinic IDs do not match"
