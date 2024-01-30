@@ -1,0 +1,123 @@
+import json
+import boto3
+import psycopg2
+import requests
+import pandas as pd
+from infra.utils.db_utils import insert_to_postgres_db
+from infra.component.auth_component import AuthComponent
+from infra.utils.assert_functions import assert_status_code
+
+
+class ClinicAggComp(AuthComponent):
+
+    def __init__(self):
+        super().__init__()
+        self.clinic_url = None
+        self.clinic_api_key = None
+        self.patients_clinic_link_table = None
+        self.kinesis_stream_patient_clinic_link = None
+        self.rds_secret = None
+        self.conn = None
+        self.relations_to_delete_from_rds = None
+
+    def init(self):
+        assert self.clinic_url
+        assert self.clinic_api_key
+        assert self.kinesis_stream_patient_clinic_link
+        assert self.patients_clinic_link_table
+        self.relations_to_delete_from_rds = []
+        self.conn = self.connect_to_rds()
+
+    def close(self):
+        for relation in self.relations_to_delete_from_rds:
+            self.delete_clinic_patient_relation(patient_id=relation)
+        self.conn.close()
+
+    def get_users_for_clinic(self, report, clinic_id: str, api_key=None):
+        """
+        get users registered for this specific clinic
+        :param report: report manager
+        :param clinic_id: the id of the clinic
+        :param api_key: the api key needed
+        :return: response containing all users registered to this clinic
+        """
+        if api_key:
+            if api_key == 'missing_api':
+                headers = {
+                    "Content-Type": "application/json",
+                }
+            else:
+                headers = {
+                    "Content-Type": "application/json",
+                    "x-api-key": api_key
+                }
+        else:
+            headers = {
+                "Content-Type": "application/json",
+                "x-api-key": self.clinic_api_key
+            }
+        data = {
+            "clinicIdDid": clinic_id
+        }
+        report.debug(f"get all users for clinic {clinic_id}")
+        response = requests.request("POST", self.clinic_url, headers=headers, json=data)
+        return response
+
+    def get_clinic_linked_to_user(self, user_id: str):
+        """
+        get clinic id the users is registered to
+        @param user_id:
+        @return: response containing the clinic id of the users registered to it
+        """
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": self.clinic_api_key
+        }
+        data = {
+            "patientIdDid": user_id
+        }
+        response = requests.request("POST", self.clinic_url, headers=headers, json=data)
+        assert_status_code(num_code=200, resp_code=response.status_code)
+        return response
+
+    def get_patient_clinic_link(self, patient_id: str):
+        """
+        fetch a patient-clinic link in Postgresql
+        :param patient_id: patient id to fetch relation of
+        :return: dataframe containing required link
+        """
+        query = f"SELECT * FROM public.retina_mapping WHERE patient_id_did='{patient_id}'"
+        dataframe = pd.read_sql_query(query, self.conn)
+        return dataframe
+
+    def add_clinic_patient_relation(self, patient_details: dict):
+        """
+        fetch a patient-clinic link in Postgresql
+        :param patient_details: details of the patient and clinic relation
+        :return: result from insert action
+        """
+        res = insert_to_postgres_db(conn=self.conn, table='public.retina_mapping', data=patient_details)
+        self.relations_to_delete_from_rds.append(patient_details['patient_id_did']['0'])
+        return res
+
+    def delete_clinic_patient_relation(self, patient_id: str):
+        """
+        delete a relation between a patient and a clinic in RDS
+        :param patient_id: patient id to delete relation of
+        :return: result from delete action
+        """
+        query = f"DELETE FROM public.retina_mapping WHERE patient_id_did='{patient_id}'"
+        res = self.conn.cursor().execute(query)
+        return res
+
+    def connect_to_rds(self):
+        """
+        connect to clinic-patient link table in RDS
+        :return: connection to RDS
+        """
+        secret = json.loads(boto3.client('secretsmanager').get_secret_value(SecretId=self.rds_secret)['SecretString'])
+        # Connect to PostgreSQL
+        conn = psycopg2.connect(database=secret['dbname'], user=secret['username'], password=secret['password'],
+                                host=secret['host'],
+                                port=secret['port'])
+        return conn
